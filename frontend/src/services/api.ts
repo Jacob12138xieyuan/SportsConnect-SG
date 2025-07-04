@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { AuthResponse, User, Session, CreateSessionData, Venue } from '../types';
 
 // Use your backend URL - update this to match your backend server
-const API_BASE_URL = 'http://10.225.58.17:4000';
+const API_BASE_URL = 'http://localhost:4000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

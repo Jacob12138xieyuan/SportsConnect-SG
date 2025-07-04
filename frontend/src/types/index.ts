@@ -78,6 +78,7 @@ export type MainTabParamList = {
   Home: undefined;
   Sessions: undefined;
   CreateSession: undefined;
+  Messages: undefined;
   Profile: undefined;
 };
 

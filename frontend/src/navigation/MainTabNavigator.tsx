@@ -10,6 +10,7 @@ import SessionsScreen from '../screens/SessionsScreen';
 import SessionDetailScreen from '../screens/SessionDetailScreen';
 import CreateSessionScreen from '../screens/CreateSessionScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import MessagesScreen from '../screens/MessagesScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const SessionStack = createStackNavigator<SessionStackParamList>();
@@ -37,6 +38,9 @@ export default function MainTabNavigator() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: string;
+          let iconSize = size;
+          let iconColor = color;
+          let style = {};
 
           switch (route.name) {
             case 'Home':
@@ -47,6 +51,12 @@ export default function MainTabNavigator() {
               break;
             case 'CreateSession':
               iconName = 'add-circle';
+              iconSize = 40;
+              iconColor = '#2563eb';
+              style = { marginBottom: 8 };
+              break;
+            case 'Messages':
+              iconName = 'chat';
               break;
             case 'Profile':
               iconName = 'person';
@@ -55,7 +65,7 @@ export default function MainTabNavigator() {
               iconName = 'help';
           }
 
-          return <Icon name={iconName} size={size} color={color} />;
+          return <Icon name={iconName} size={iconSize} color={iconColor} style={style} />;
         },
         tabBarActiveTintColor: '#2563eb',
         tabBarInactiveTintColor: 'gray',
@@ -76,6 +86,11 @@ export default function MainTabNavigator() {
         name="CreateSession" 
         component={CreateSessionScreen}
         options={{ title: 'Create Session' }}
+      />
+      <Tab.Screen 
+        name="Messages" 
+        component={MessagesScreen}
+        options={{ title: 'Messages' }}
       />
       <Tab.Screen 
         name="Profile" 
