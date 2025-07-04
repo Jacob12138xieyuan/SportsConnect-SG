@@ -1,0 +1,57 @@
+# Node modules
+node_modules/
+**/node_modules/
+
+# Build output
+build/
+dist/
+.expo/
+.expo-shared/
+web-build/
+
+# Expo
+*.expo
+*.expo-shared
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+
+# IDEs
+.vscode/
+.idea/
+
+# Misc
+*.log
+*.lock
+
+# Coverage
+coverage/
+
+# Expo managed assets
+assets/**/.*
+
+# Mac system files
+Icon?
+
+# Ignore backend build artifacts
+backend/build/
+
+# Ignore frontend build artifacts
+frontend/build/
+frontend/dist/
+frontend/web-build/ 
+
+.cursor/

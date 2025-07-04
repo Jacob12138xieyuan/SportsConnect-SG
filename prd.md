@@ -1,0 +1,288 @@
+# SportConnect SG - Product Requirements Document
+
+## Executive Summary
+
+SportConnect SG is a mobile-first social platform designed to connect sports enthusiasts across Singapore. The app enables users to organize, discover, and join sports sessions while building a community of active individuals. Starting with badminton as the primary sport, the platform will expand to include other popular sports in Singapore.
+
+## Product Vision
+
+To become Singapore's premier sports social network, making it effortless for people to find playing partners, discover new venues, and stay active together.
+
+## Target Audience
+
+### Primary Users
+- **Sports Enthusiasts (Ages 18-45)**: Regular players looking for partners and new venues
+- **Casual Players**: People wanting to get back into sports or try new activities
+- **Expats & Newcomers**: Individuals seeking social connections through sports
+
+### Secondary Users
+- **Venue Owners**: Sports facilities wanting to promote their courts/facilities
+- **Sports Communities**: Existing clubs and groups wanting to expand their reach
+
+## Key Features
+
+### 1. Session Management
+#### Host Features
+- Create sports sessions with detailed information:
+  - Sport type (starting with badminton)
+  - Date and time
+  - Venue details with map integration (ActiveSG courts + other venues)
+  - Number of players needed (current/maximum)
+  - Self-declared skill level requirements (Beginner/Intermediate/Advanced)
+  - Session preferences (mixed/same-gender, age ranges)
+  - Session fee with flexible payment options
+  - Equipment requirements
+  - Additional notes/description
+  - Contact information
+- Manage participant lists with waitlist functionality
+- Send updates to participants
+- Mark sessions as completed
+- Rate and review participants
+
+#### Participant Features
+- Browse available sessions in unified home feed with filters:
+  - Sport type
+  - Date range
+  - Location/proximity
+  - Skill level
+  - Price range
+- View session details with integrated map
+- Join/leave sessions
+- Receive notifications about session updates
+- Direct chat with session organizer
+- Rate and review sessions and hosts
+
+### 2. User Profile & Community
+#### Profile Management
+- Personal information and profile photo
+- Sports preferences and self-declared skill levels (Beginner/Intermediate/Advanced)
+- Playing history and statistics
+- Ratings and reviews from other users
+- Favorite venues and regular playing times
+- Achievement badges and milestones
+- Age and gender preferences for sessions
+- **Digital Wallet Management**:
+  - Wallet balance and transaction history
+  - Top-up options (PayNow, credit cards, bank transfer)
+  - Payment settings and preferences
+  - Automatic payment options for regular sessions
+  - Spending analytics and budgeting tools
+
+#### Social Features
+- Follow other players
+- Create and join user groups (WhatsApp-style group functionality)
+- Regular playing groups with recurring sessions
+- Share session photos and updates
+- Activity feed showing friends' sessions
+- Leaderboards and challenges
+
+### 3. Venue Discovery
+#### Map Integration
+- Interactive map showing all available sessions
+- Venue information and photos
+- User reviews and ratings for venues
+- Directions and public transport options
+- Venue amenities (parking, changing rooms, equipment rental)
+
+#### Venue Database
+- Comprehensive database of Singapore sports venues including:
+  - ActiveSG courts and facilities
+  - Private sports clubs and courts
+  - Community centers and schools
+  - Commercial sports facilities
+- Real-time availability (where possible)
+- Pricing information
+- Facility details and photos
+- User-generated content and reviews
+
+### 4. Communication & Chat System
+#### Personal Chat
+- Direct messaging between users
+- Session organizer-participant private chats
+- User-to-user communication for networking
+- File sharing (images, documents)
+- Chat history and search functionality
+
+#### Group Chat
+- User groups with WhatsApp-style functionality:
+  - Create persistent groups for regular players
+  - Group administrators and member management
+  - Group types: Public (discoverable) or Private (invite-only by admin)
+  - Recurring session scheduling within groups
+  - Group announcements and polls
+  - Group file sharing and photo albums
+
+#### Chat Features
+- Automated notifications and reminders
+- Push notifications for messages and updates
+- Message status indicators (sent, delivered, read)
+- Typing indicators and online status
+- Voice messages and emoji reactions
+
+### 6. Payment System
+#### Multiple Payment Options
+- **In-App Wallet**: Users can top up and pay through app wallet
+- **External Payment**: Direct payment outside the app (cash, bank transfer)
+- **Integrated Payment**: PayNow, credit cards, NETS for seamless transactions
+- **Split Payment**: Option to split costs among participants
+- **Escrow Service**: Optional payment holding to reduce no-shows
+
+#### Payment Features
+- Fee transparency and breakdown
+- Refund policies and automated processing
+- Payment history and receipts
+- Group payment coordination
+- Venue booking payment integration (where applicable)
+#### Verification System
+- Phone number verification
+- Optional social media linking
+- User reporting system
+- Rating and review system
+- Moderation tools
+
+#### Safety Features
+- Public session locations only
+- Emergency contact information
+- Session cancellation policies
+- Dispute resolution process
+
+## Technical Requirements
+
+### Platform
+- Native iOS and Android mobile apps
+- Responsive web interface (future phase)
+
+### Core Technologies
+- Real-time messaging and notifications
+- GPS and mapping integration (Google Maps)
+- Payment processing (PayNow, credit cards)
+- Photo/video sharing capabilities
+- Push notification system
+
+### Integration Requirements
+- Singapore mapping and location services
+- Local payment systems (PayNow, NETS)
+- Social media platforms (optional login)
+- Weather API for outdoor sports
+- Public transport information (LTA DataMall)
+
+## User Experience Flow
+
+### New User Onboarding
+1. Download app and create account
+2. Complete profile setup (interests, skill level, location)
+3. Set up digital wallet (optional)
+4. Browse tutorial highlighting key features
+5. Encouraged to join first session or create one
+
+### Creating a Session
+1. Select sport type and basic details
+2. Choose venue from map or search
+3. Set date, time, and participant requirements
+4. Add description and additional details
+5. Publish session
+
+### Joining a Session
+1. Browse sessions in unified home feed
+2. Apply filters (sport, date, location, skill level)
+3. View session details and venue information
+4. Check host profile and reviews
+5. Join session and chat directly with organizer
+6. Receive session reminders and updates
+
+### Using Chat System
+1. Access personal chats with session organizers
+2. Join or create user groups for regular play
+3. Receive notifications for new messages
+4. Share photos and coordinate meet-ups
+
+## Business Model
+
+### Revenue Streams
+1. **Freemium Model**: Basic features free, premium features for power users
+2. **Transaction Fees**: Small percentage on paid sessions
+3. **Venue Partnerships**: Commission from venue bookings
+4. **Premium Subscriptions**: Advanced features, priority support, ad-free experience
+5. **Corporate Partnerships**: Team building packages for companies
+
+### Monetization Strategy
+- Launch with free model to build user base
+- Introduce premium features after reaching critical mass
+- Partner with venues for mutual promotion
+- Develop corporate and event management services
+
+## Success Metrics
+
+### User Engagement
+- Monthly Active Users (MAU)
+- Session creation and participation rates
+- User retention rates (Day 1, Day 7, Day 30)
+- Average sessions per user per month
+
+### Platform Growth
+- New user acquisition rate
+- Geographic coverage across Singapore
+- Number of venues in database
+- Session completion rates
+
+### Community Health
+- User satisfaction scores
+- Safety incident reports
+- Dispute resolution time
+- User-generated content volume
+
+## Development Roadmap
+
+### Phase 1 (MVP - Months 1-3)
+- Basic session creation and joining
+- User profiles and messaging
+- Map integration for venues
+- Badminton sport focus
+- iOS and Android apps
+
+### Phase 2 (Months 4-6)
+- Additional sports (tennis, football, basketball)
+- Enhanced user profiles and rating system
+- Payment integration
+- Advanced filtering and search
+- Push notifications
+
+### Phase 3 (Months 7-9)
+- Social features (following, activity feeds)
+- Venue partnership program
+- Corporate team building features
+- Advanced analytics and insights
+- Web platform launch
+
+### Phase 4 (Months 10-12)
+- AI-powered recommendations
+- Advanced community features
+- International expansion planning
+- Premium subscription launch
+- Advanced safety and moderation tools
+
+## Risk Considerations
+
+### Technical Risks
+- Scalability challenges with real-time features
+- Map and location accuracy in Singapore
+- Payment processing compliance
+- Data privacy and security
+
+### Business Risks
+- Competition from established platforms
+- Venue partnership acquisition
+- User acquisition costs
+- Seasonal sports participation fluctuations
+
+### Mitigation Strategies
+- Phased rollout to test scalability
+- Strong partnerships with local venues
+- Focus on community building over pure growth
+- Diversified sports portfolio to balance seasonality
+
+## Conclusion
+
+SportConnect SG has the potential to become Singapore's leading sports social platform by focusing on user experience, community building, and local market needs. The phased approach allows for iterative development based on user feedback while building a sustainable business model.
+
+The success of this platform depends on creating a trusted, safe, and engaging environment where sports enthusiasts can easily connect and play together, ultimately contributing to a more active and connected Singapore.
