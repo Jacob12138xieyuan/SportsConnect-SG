@@ -66,13 +66,21 @@ router.post('/google', async (req: Request, res: Response) => {
 
 // JWT Middleware
 export function requireAuth(req: Request & { userId?: string }, res: Response, next: NextFunction) {
+  console.log('Auth middleware called for:', req.method, req.path);
+
   const auth = req.headers.authorization;
-  if (!auth) return res.status(401).json({ error: 'No token' });
+  if (!auth) {
+    console.log('No authorization header found');
+    return res.status(401).json({ error: 'No token' });
+  }
+
   try {
     const payload = jwt.verify(auth.split(' ')[1], JWT_SECRET) as JwtPayload;
     req.userId = payload.userId as string;
+    console.log('Auth successful for user:', req.userId);
     next();
-  } catch {
+  } catch (err) {
+    console.log('Token verification failed:', err);
     res.status(401).json({ error: 'Invalid token' });
   }
 }

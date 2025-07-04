@@ -1,4 +1,5 @@
 import React from 'react';
+import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -8,9 +9,9 @@ import { MainTabParamList, SessionStackParamList } from '../types';
 import HomeScreen from '../screens/HomeScreen';
 import SessionsScreen from '../screens/SessionsScreen';
 import SessionDetailScreen from '../screens/SessionDetailScreen';
+import MessagesScreen from '../screens/MessagesScreen';
 import CreateSessionScreen from '../screens/CreateSessionScreen';
 import ProfileScreen from '../screens/ProfileScreen';
-import MessagesScreen from '../screens/MessagesScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const SessionStack = createStackNavigator<SessionStackParamList>();
@@ -37,11 +38,12 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName: string;
-          let iconSize = size;
-          let iconColor = color;
-          let style = {};
+          // CreateSession has custom icon, skip default handling
+          if (route.name === 'CreateSession') {
+            return null;
+          }
 
+          let iconName = 'help';
           switch (route.name) {
             case 'Home':
               iconName = 'home';
@@ -49,27 +51,24 @@ export default function MainTabNavigator() {
             case 'Sessions':
               iconName = 'sports-tennis';
               break;
-            case 'CreateSession':
-              iconName = 'add-circle';
-              iconSize = 40;
-              iconColor = '#2563eb';
-              style = { marginBottom: 8 };
-              break;
             case 'Messages':
               iconName = 'chat';
               break;
             case 'Profile':
               iconName = 'person';
               break;
-            default:
-              iconName = 'help';
           }
 
-          return <Icon name={iconName} size={iconSize} color={iconColor} style={style} />;
+          return <Icon name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#2563eb',
         tabBarInactiveTintColor: 'gray',
         headerShown: true,
+        tabBarStyle: {
+          height: 80,
+          paddingBottom: 10,
+          paddingTop: 10,
+        },
       })}
     >
       <Tab.Screen 
@@ -77,23 +76,46 @@ export default function MainTabNavigator() {
         component={HomeScreen}
         options={{ title: 'SportConnect SG' }}
       />
-      <Tab.Screen 
-        name="Sessions" 
+      <Tab.Screen
+        name="Sessions"
         component={SessionStackNavigator}
         options={{ headerShown: false }}
       />
-      <Tab.Screen 
-        name="CreateSession" 
+      <Tab.Screen
+        name="CreateSession"
         component={CreateSessionScreen}
-        options={{ title: 'Create Session' }}
+        options={{
+          title: 'Create Session',
+          tabBarIcon: ({ focused }) => {
+            return (
+              <View style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: focused ? '#1d4ed8' : '#2563eb',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 10,
+                shadowColor: '#2563eb',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 8,
+              }}>
+                <Icon name="add" size={28} color="#ffffff" />
+              </View>
+            );
+          },
+          tabBarLabel: () => null,
+        }}
       />
-      <Tab.Screen 
-        name="Messages" 
+      <Tab.Screen
+        name="Messages"
         component={MessagesScreen}
         options={{ title: 'Messages' }}
       />
-      <Tab.Screen 
-        name="Profile" 
+      <Tab.Screen
+        name="Profile"
         component={ProfileScreen}
         options={{ title: 'Profile' }}
       />

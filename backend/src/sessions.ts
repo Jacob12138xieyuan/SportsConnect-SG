@@ -18,7 +18,9 @@ router.get('/', async (_req, res) => {
 // GET /sessions/:id - get session by id
 router.get('/:id', async (req, res) => {
   try {
-    const session = await Session.findById(req.params.id);
+    const session = await Session.findById(req.params.id)
+      .populate({ path: 'participants', select: 'name avatar email' })
+      .populate({ path: 'hostId', select: 'name avatar email' });
     if (!session) return res.status(404).json({ error: 'Session not found' });
     res.json(session);
   } catch (err) {
@@ -53,22 +55,62 @@ router.post('/', requireAuth, async (req: Request & { userId?: string }, res: Re
 
 // POST /sessions/:id/join - join a session
 router.post('/:id/join', requireAuth, async (req: Request & { userId?: string }, res: Response) => {
+  console.log('Join session request received:', {
+    sessionId: req.params.id,
+    userId: req.userId,
+    timestamp: new Date().toISOString()
+  });
+
   try {
     const session = await Session.findById(req.params.id);
-    if (!session) return res.status(404).json({ error: 'Session not found' });
+    if (!session) {
+      console.log('Session not found:', req.params.id);
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
     const userIdStr = req.userId?.toString();
+    console.log('Session found:', {
+      sessionId: session._id,
+      currentParticipants: session.participants,
+      currentPlayers: session.currentPlayers,
+      maxPlayers: session.maxPlayers,
+      userTryingToJoin: userIdStr
+    });
+
     if (session.participants && session.participants.map((id: any) => id.toString()).includes(userIdStr)) {
+      console.log('User already joined this session');
       return res.status(400).json({ error: 'Already joined' });
     }
+
     if (session.currentPlayers >= session.maxPlayers) {
+      console.log('Session is full');
       return res.status(400).json({ error: 'Session is full' });
     }
+
     session.participants = session.participants || [];
     session.participants.push(new mongoose.Types.ObjectId(userIdStr));
     session.currentPlayers += 1;
+
+    console.log('Saving session with new participant:', {
+      newParticipants: session.participants,
+      newCurrentPlayers: session.currentPlayers
+    });
+
     await session.save();
-    res.json(session);
+
+    const populatedSession = await Session.findById(session._id)
+      .populate({ path: 'participants', select: 'name avatar email' })
+      .populate({ path: 'hostId', select: 'name avatar email' });
+
+    console.log('Join successful, returning populated session:', {
+      sessionId: populatedSession?._id,
+      participantCount: populatedSession?.participants?.length,
+      currentPlayers: populatedSession?.currentPlayers
+    });
+
+    res.json(populatedSession);
   } catch (err) {
+    console.error('Join session error:', err);
     res.status(500).json({ error: 'Failed to join session' });
   }
 });
@@ -85,7 +127,10 @@ router.post('/:id/leave', requireAuth, async (req: Request & { userId?: string }
     session.participants = session.participants.filter((id: any) => id.toString() !== userIdStr);
     session.currentPlayers = Math.max(0, session.currentPlayers - 1);
     await session.save();
-    res.json(session);
+    const populatedSession = await Session.findById(session._id)
+      .populate({ path: 'participants', select: 'name avatar email' })
+      .populate({ path: 'hostId', select: 'name avatar email' });
+    res.json(populatedSession);
   } catch (err) {
     res.status(500).json({ error: 'Failed to leave session' });
   }

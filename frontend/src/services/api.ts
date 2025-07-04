@@ -1,9 +1,49 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { AuthResponse, User, Session, CreateSessionData, Venue } from '../types';
 
 // Use your backend URL - update this to match your backend server
 const API_BASE_URL = 'http://localhost:4000';
+
+// Secure storage utility with fallback for web/development
+const secureStorage = {
+  async getItem(key: string): Promise<string | null> {
+    try {
+      if (Platform.OS === 'web') {
+        return localStorage.getItem(key);
+      }
+      return await SecureStore.getItemAsync(key);
+    } catch (error) {
+      console.warn('SecureStore getItem error:', error);
+      return null;
+    }
+  },
+
+  async setItem(key: string, value: string): Promise<void> {
+    try {
+      if (Platform.OS === 'web') {
+        localStorage.setItem(key, value);
+        return;
+      }
+      await SecureStore.setItemAsync(key, value);
+    } catch (error) {
+      console.warn('SecureStore setItem error:', error);
+    }
+  },
+
+  async deleteItem(key: string): Promise<void> {
+    try {
+      if (Platform.OS === 'web') {
+        localStorage.removeItem(key);
+        return;
+      }
+      await SecureStore.deleteItemAsync(key);
+    } catch (error) {
+      console.warn('SecureStore deleteItem error:', error);
+    }
+  }
+};
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -13,13 +53,38 @@ const api = axios.create({
 });
 
 // Add auth token to requests
-// api.interceptors.request.use(async (config) => {
-//   const token = await SecureStore.getItemAsync('authToken');
-//   if (token) {
-//     config.headers.Authorization = `Bearer ${token}`;
-//   }
-//   return config;
-// });
+api.interceptors.request.use(
+  async (config) => {
+    try {
+      const token = await secureStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log('Added auth token to request:', config.url);
+      } else {
+        console.log('No auth token found for request:', config.url);
+      }
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+    }
+    return config;
+  },
+  (error) => {
+    console.error('Request interceptor error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle auth errors
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      console.log('Auth error detected, clearing token');
+      await secureStorage.deleteItem('authToken');
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Auth API
 export const authAPI = {
@@ -65,17 +130,28 @@ export const sessionsAPI = {
   },
 
   createSession: async (sessionData: CreateSessionData): Promise<Session> => {
-    const response = await api.post('/sessions', sessionData);
-    return response.data;
+    console.log('API: Creating session with data:', sessionData);
+    try {
+      const response = await api.post('/sessions', sessionData);
+      console.log('API: Session created successfully:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('API: Session creation failed:', error);
+      throw error;
+    }
   },
 
   joinSession: async (id: string): Promise<Session> => {
+    console.log('Attempting to join session:', id);
     const response = await api.post(`/sessions/${id}/join`);
+    console.log('Join session response:', response.data);
     return response.data;
   },
 
   leaveSession: async (id: string): Promise<Session> => {
+    console.log('Attempting to leave session:', id);
     const response = await api.post(`/sessions/${id}/leave`);
+    console.log('Leave session response:', response.data);
     return response.data;
   },
 };

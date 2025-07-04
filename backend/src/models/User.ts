@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema({
   passwordHash: { type: String }, // Not required for Google users
   name: { type: String, required: true },
   googleId: { type: String },
+  avatar: { type: String }, // Optional avatar URL
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema); 

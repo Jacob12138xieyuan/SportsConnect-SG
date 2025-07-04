@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRoute, RouteProp } from '@react-navigation/native';
@@ -13,6 +14,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { SessionStackParamList } from '../types';
 import { sessionsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { User } from '../types';
 
 type SessionDetailRouteProp = RouteProp<SessionStackParamList, 'SessionDetail'>;
 
@@ -33,12 +35,14 @@ export default function SessionDetailScreen() {
 
   const joinMutation = useMutation({
     mutationFn: () => sessionsAPI.joinSession(sessionId),
-    onSuccess: () => {
+    onSuccess: (updatedSession) => {
+      console.log('Join successful, updated session:', updatedSession);
       queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       Alert.alert('Success', 'You have joined the session!');
     },
     onError: (error: any) => {
+      console.error('Join error:', error);
       Alert.alert('Error', error.response?.data?.error || 'Failed to join session');
     },
   });
@@ -94,19 +98,59 @@ export default function SessionDetailScreen() {
     }
   };
 
-  const isUserParticipant = session.participants?.includes(user?.id || '');
-  const isUserHost = session.hostId === user?.id;
+  // Check if user is a participant (handle both populated User objects and string IDs)
+  const isUserParticipant = session.participants?.some(participant => {
+    if (!participant || !user?.id) return false;
+    if (typeof participant === 'string') {
+      return participant === user.id;
+    }
+    return participant._id === user.id || participant.id === user.id;
+  }) || false;
+
+  // Check if user is the host (handle both populated User object and string ID)
+  const isUserHost = (() => {
+    if (!session.hostId || !user?.id) return false;
+    if (typeof session.hostId === 'string') {
+      return session.hostId === user.id;
+    }
+    return session.hostId._id === user.id || session.hostId.id === user.id;
+  })();
+
   const isFull = session.currentPlayers >= session.maxPlayers;
   const canJoin = !isUserParticipant && !isUserHost && !isFull;
   const canLeave = isUserParticipant && !isUserHost;
 
+  // Debug logging
+  console.log('Session Detail Debug:', {
+    sessionId,
+    userId: user?.id,
+    isUserParticipant,
+    isUserHost,
+    isFull,
+    canJoin,
+    canLeave,
+    currentPlayers: session.currentPlayers,
+    maxPlayers: session.maxPlayers,
+    participants: session.participants
+  });
+
   const handleJoin = () => {
+    console.log('Join button pressed for session:', sessionId);
+    console.log('Current user:', user);
+    console.log('Can join?', canJoin);
+    console.log('Is user participant?', isUserParticipant);
+    console.log('Is user host?', isUserHost);
+    console.log('Is full?', isFull);
+
     Alert.alert(
       'Join Session',
       `Are you sure you want to join this ${session.sport} session for S$${session.fee}?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Join', onPress: () => joinMutation.mutate() },
+        { text: 'Join', onPress: () => {
+          console.log('User confirmed join, calling mutation...');
+          joinMutation.mutate();
+        }},
       ]
     );
   };
@@ -133,7 +177,35 @@ export default function SessionDetailScreen() {
         </View>
         
         <Text style={styles.venue}>{session.venue}</Text>
-        <Text style={styles.host}>Hosted by {session.hostName}</Text>
+        <Text style={styles.host}>Hosted by {typeof session.hostId === 'object' ? session.hostId.name : session.hostName}</Text>
+      </View>
+
+      {/* Participants Avatars */}
+      <View style={styles.participantsContainer}>
+        <Text style={styles.participantsTitle}>Participants</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.participantsList}>
+          {session.participants && session.participants.length > 0 ? (
+            session.participants
+              .filter((p) => typeof p === 'object' && p !== null && 'id' in p && 'name' in p)
+              .map((p) => {
+                const user = p as User;
+                return (
+                  <View key={user.id} style={styles.participantItem}>
+                    {user.avatar ? (
+                      <Image source={{ uri: user.avatar }} style={styles.participantAvatar} />
+                    ) : (
+                      <View style={styles.participantAvatarPlaceholder}>
+                        <Icon name="person" size={32} color="#9ca3af" />
+                      </View>
+                    )}
+                    <Text style={styles.participantName} numberOfLines={1}>{user.name}</Text>
+                  </View>
+                );
+              })
+          ) : (
+            <Text style={styles.noParticipantsText}>No participants yet</Text>
+          )}
+        </ScrollView>
       </View>
 
       <View style={styles.detailsContainer}>
@@ -158,15 +230,7 @@ export default function SessionDetailScreen() {
           </View>
         </View>
 
-        <View style={styles.detailRow}>
-          <Icon name="group" size={24} color="#2563eb" />
-          <View style={styles.detailContent}>
-            <Text style={styles.detailLabel}>Players</Text>
-            <Text style={styles.detailValue}>
-              {session.currentPlayers} of {session.maxPlayers} joined
-            </Text>
-          </View>
-        </View>
+
 
         <View style={styles.detailRow}>
           <Icon name="attach-money" size={24} color="#2563eb" />
@@ -186,6 +250,97 @@ export default function SessionDetailScreen() {
           </View>
         )}
       </View>
+
+      {/* Participants List */}
+      {session.participants && session.participants.length > 0 && (
+        <View style={styles.participantsContainer}>
+          <View style={styles.participantsHeader}>
+            <Text style={styles.participantsTitle}>
+              Participants ({session.participants.length}/{session.maxPlayers})
+            </Text>
+            <View style={styles.participantsSummary}>
+              <Icon name="group" size={16} color="#6b7280" />
+              <Text style={styles.participantsSummaryText}>
+                {session.maxPlayers - session.participants.length} spots left
+              </Text>
+            </View>
+          </View>
+          {session.participants.map((participant, index) => {
+            if (!participant) return null;
+
+            const participantName = typeof participant === 'string'
+              ? 'Unknown User'
+              : participant.name || 'Unknown User';
+
+            const participantId = typeof participant === 'string'
+              ? participant
+              : participant._id || participant.id;
+
+            const hostId = typeof session.hostId === 'string'
+              ? session.hostId
+              : session.hostId?._id || session.hostId?.id;
+
+            const isHost = hostId === participantId;
+
+            return (
+              <View key={index} style={styles.participantItem}>
+                <View style={styles.participantInfo}>
+                  <View style={styles.participantAvatar}>
+                    {typeof participant !== 'string' && participant.avatar ? (
+                      <Image
+                        source={{ uri: participant.avatar }}
+                        style={styles.avatarImage}
+                        onError={() => {
+                          // Fallback to default avatar on error
+                        }}
+                      />
+                    ) : (
+                      <View style={styles.defaultAvatar}>
+                        <Icon name="person" size={16} color="#ffffff" />
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.participantDetails}>
+                    <Text style={styles.participantName}>{participantName}</Text>
+                    {typeof participant !== 'string' && participant.email && (
+                      <Text style={styles.participantEmail}>{participant.email}</Text>
+                    )}
+                  </View>
+                  {isHost && (
+                    <View style={styles.hostTag}>
+                      <Text style={styles.hostTagText}>Host</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          }).filter(Boolean)}
+        </View>
+      )}
+
+      {/* Empty participants state */}
+      {(!session.participants || session.participants.length === 0) && (
+        <View style={styles.participantsContainer}>
+          <View style={styles.participantsHeader}>
+            <Text style={styles.participantsTitle}>
+              Participants (0/{session.maxPlayers})
+            </Text>
+            <View style={styles.participantsSummary}>
+              <Icon name="group" size={16} color="#6b7280" />
+              <Text style={styles.participantsSummaryText}>
+                {session.maxPlayers} spots available
+              </Text>
+            </View>
+          </View>
+          <View style={styles.emptyParticipants}>
+            <Icon name="group-add" size={48} color="#d1d5db" />
+            <Text style={styles.emptyParticipantsText}>No participants yet</Text>
+            <Text style={styles.emptyParticipantsSubtext}>
+              Be the first to join this session!
+            </Text>
+          </View>
+        </View>
+      )}
 
       <View style={styles.statusContainer}>
         <View style={[
@@ -410,5 +565,153 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  participantsContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  participantsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  participantsList: {
+    flexDirection: 'row',
+  },
+  participantItem: {
+    alignItems: 'center',
+    marginRight: 16,
+    width: 64,
+  },
+  participantAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginBottom: 4,
+    backgroundColor: '#e5e7eb',
+  },
+  participantAvatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  participantName: {
+    fontSize: 12,
+    color: '#374151',
+    textAlign: 'center',
+    maxWidth: 60,
+  },
+  noParticipantsText: {
+    color: '#9ca3af',
+    fontSize: 14,
+    marginTop: 8,
+  },
+  participantsContainer: {
+    backgroundColor: '#ffffff',
+    margin: 16,
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  participantsHeader: {
+    marginBottom: 16,
+  },
+  participantsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  participantsSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  participantsSummaryText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginLeft: 4,
+  },
+  participantItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  participantInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  participantAvatar: {
+    marginRight: 12,
+  },
+  avatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  defaultAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#6b7280',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  participantDetails: {
+    flex: 1,
+  },
+  participantName: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  participantEmail: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 2,
+  },
+  hostTag: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  hostTagText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400e',
+  },
+  emptyParticipants: {
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyParticipantsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyParticipantsSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
   },
 });

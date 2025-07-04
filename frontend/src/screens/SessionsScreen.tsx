@@ -22,14 +22,13 @@ export default function SessionsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSport, setSelectedSport] = useState<string>('All');
   const [selectedSkillLevel, setSelectedSkillLevel] = useState<string>('All');
-  const [error, setError] = useState<boolean>(false);
 
   const {
     data: sessions = [],
     isLoading,
     refetch,
-    error: queryError,
-  } = useQuery<Session[], Error>({
+    isRefreshing,
+  } = useQuery({
     queryKey: ['sessions'],
     queryFn: sessionsAPI.getAllSessions,
   });
@@ -190,26 +189,19 @@ export default function SessionsScreen() {
         keyExtractor={(item) => item._id}
         renderItem={renderSessionItem}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={() => refetch()} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={refetch} />
         }
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
-          queryError ? (
-            <View style={styles.emptyState}>
-              <Icon name="error-outline" size={48} color="#ef4444" />
-              <Text style={styles.emptyStateText}>Failed to load sessions</Text>
-              <TouchableOpacity onPress={() => refetch()} style={styles.retryButton}>
-                <Text style={styles.retryButtonText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.emptyState}>
-              <Icon name="sports-tennis" size={48} color="#d1d5db" />
-              <Text style={styles.emptyStateText}>
-                {isLoading ? 'Loading sessions...' : 'No sessions found'}
-              </Text>
-            </View>
-          )
+          <View style={styles.emptyState}>
+            <Icon name="sports-tennis" size={48} color="#d1d5db" />
+            <Text style={styles.emptyStateText}>
+              {isLoading ? 'Loading sessions...' : 'No sessions found'}
+            </Text>
+            <Text style={styles.emptyStateSubtext}>
+              {isLoading ? 'Please wait' : 'Try adjusting your search or filters'}
+            </Text>
+          </View>
         }
       />
     </View>
@@ -367,14 +359,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
-  retryButton: {
-    backgroundColor: '#2563eb',
-    padding: 16,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#ffffff',
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
   },
 });

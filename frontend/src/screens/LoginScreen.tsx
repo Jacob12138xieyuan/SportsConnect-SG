@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAuth } from '../contexts/AuthContext';
 import { RootStackParamList } from '../types';
+import { testSecureStore } from '../utils/testSecureStore';
 
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -24,6 +25,11 @@ export default function LoginScreen() {
   
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const { login } = useAuth();
+
+  // Test SecureStore on component mount
+  useEffect(() => {
+    testSecureStore();
+  }, []);
 
   const handleLogin = async () => {
     console.log('Login button pressed');

@@ -31,9 +31,32 @@ export default function HomeScreen() {
     queryFn: sessionsAPI.getAllSessions,
   });
 
-  // Get upcoming sessions (next 3)
+  // Get upcoming sessions that the user has joined (next 3)
   const upcomingSessions = sessions
-    .filter(session => new Date(`${session.date} ${session.time}`) > new Date())
+    .filter(session => {
+      // Check if session is in the future
+      const sessionDateTime = new Date(`${session.date} ${session.time}`);
+      const isUpcoming = sessionDateTime > new Date();
+
+      // Check if user has joined this session (either as host or participant)
+      const isUserHost = (() => {
+        if (!session.hostId || !user?.id) return false;
+        if (typeof session.hostId === 'string') {
+          return session.hostId === user.id;
+        }
+        return session.hostId._id === user.id || session.hostId.id === user.id;
+      })();
+
+      const isUserParticipant = session.participants?.some(participant => {
+        if (!participant || !user?.id) return false;
+        if (typeof participant === 'string') {
+          return participant === user.id;
+        }
+        return participant._id === user.id || participant.id === user.id;
+      }) || false;
+
+      return isUpcoming && (isUserHost || isUserParticipant);
+    })
     .sort((a, b) => new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime())
     .slice(0, 3);
 
@@ -83,7 +106,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Upcoming Sessions</Text>
+        <Text style={styles.sectionTitle}>My Upcoming Sessions</Text>
         
         {isLoading ? (
           <Text style={styles.loadingText}>Loading sessions...</Text>
@@ -116,7 +139,7 @@ export default function HomeScreen() {
             <Icon name="sports-tennis" size={48} color="#d1d5db" />
             <Text style={styles.emptyStateText}>No upcoming sessions</Text>
             <Text style={styles.emptyStateSubtext}>
-              Create a session or browse available ones
+              Join a session to see it here, or create your own
             </Text>
           </View>
         )}
@@ -131,13 +154,28 @@ export default function HomeScreen() {
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>
-              {sessions.filter(s => s.hostId === user?.id).length}
+              {sessions.filter(s => {
+                if (!s.hostId || !user?.id) return false;
+                if (typeof s.hostId === 'string') {
+                  return s.hostId === user.id;
+                }
+                return s.hostId._id === user.id || s.hostId.id === user.id;
+              }).length}
             </Text>
             <Text style={styles.statLabel}>Hosted</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>
-              {sessions.filter(s => s.participants?.includes(user?.id || '')).length}
+              {sessions.filter(s => {
+                if (!user?.id) return false;
+                return s.participants?.some(participant => {
+                  if (!participant) return false;
+                  if (typeof participant === 'string') {
+                    return participant === user.id;
+                  }
+                  return participant._id === user.id || participant.id === user.id;
+                });
+              }).length}
             </Text>
             <Text style={styles.statLabel}>Joined</Text>
           </View>

@@ -1,9 +1,11 @@
 // User types
 export interface User {
   id: string;
+  _id?: string;
   email: string;
   name: string;
   googleId?: string;
+  avatar?: string;
 }
 
 export interface AuthResponse {
@@ -18,14 +20,14 @@ export interface Session {
   date: string;
   time: string;
   venue: string;
-  skillLevel: 'Beginner' | 'Intermediate' | 'Advanced';
+  skillLevel: string;
   hostName: string;
-  hostId: string;
+  hostId: User | string;
   currentPlayers: number;
   maxPlayers: number;
   fee: number;
   notes?: string;
-  participants?: string[];
+  participants?: (User | string)[];
   createdAt: string;
   updatedAt: string;
 }
@@ -35,7 +37,7 @@ export interface CreateSessionData {
   date: string;
   time: string;
   venue: string;
-  skillLevel: 'Beginner' | 'Intermediate' | 'Advanced';
+  skillLevel: string;
   hostName: string;
   maxPlayers: number;
   fee: number;

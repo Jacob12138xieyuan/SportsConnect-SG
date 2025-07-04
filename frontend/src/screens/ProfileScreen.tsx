@@ -21,10 +21,25 @@ export default function ProfileScreen() {
   });
 
   // Calculate user statistics
-  const hostedSessions = sessions.filter(session => session.hostId === user?.id);
-  const joinedSessions = sessions.filter(session => 
-    session.participants?.includes(user?.id || '')
-  );
+  const hostedSessions = sessions.filter(session => {
+    if (!session.hostId || !user?.id) return false;
+    if (typeof session.hostId === 'string') {
+      return session.hostId === user.id;
+    }
+    return session.hostId._id === user.id || session.hostId.id === user.id;
+  });
+
+  const joinedSessions = sessions.filter(session => {
+    if (!user?.id) return false;
+    return session.participants?.some(participant => {
+      if (!participant) return false;
+      if (typeof participant === 'string') {
+        return participant === user.id;
+      }
+      return participant._id === user.id || participant.id === user.id;
+    });
+  });
+
   const totalSessions = hostedSessions.length + joinedSessions.length;
 
   const handleLogout = async () => {
