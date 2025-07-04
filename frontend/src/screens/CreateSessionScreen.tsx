@@ -28,10 +28,15 @@ export default function CreateSessionScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Initialize with current date/time
+  // Initialize with current date and future time
   const now = new Date();
+  const defaultTime = new Date();
+  defaultTime.setHours(defaultTime.getHours() + 2); // Set default time to 2 hours from now
+  defaultTime.setMinutes(0); // Round to the hour
+  defaultTime.setSeconds(0);
+
   const [selectedDate, setSelectedDate] = useState(now);
-  const [selectedTime, setSelectedTime] = useState(now);
+  const [selectedTime, setSelectedTime] = useState(defaultTime);
 
   const [formData, setFormData] = useState({
     sport: 'Badminton',
@@ -40,6 +45,14 @@ export default function CreateSessionScreen() {
     maxPlayers: '4',
     fee: '',
     notes: '',
+  });
+
+  // Form validation errors
+  const [errors, setErrors] = useState({
+    venue: '',
+    maxPlayers: '',
+    fee: '',
+    date: '',
   });
 
   const [newVenueName, setNewVenueName] = useState('');
@@ -108,6 +121,95 @@ export default function CreateSessionScreen() {
 
   // Get skill levels for current sport
   const currentSkillLevels = sportSkillLevels[formData.sport] || ['Beginner', 'Intermediate', 'Advanced'];
+
+  // Validation functions
+  const validateForm = () => {
+    const newErrors = {
+      venue: '',
+      maxPlayers: '',
+      fee: '',
+      date: '',
+    };
+
+    // Venue validation
+    if (!formData.venue.trim()) {
+      newErrors.venue = 'Venue is required';
+    }
+
+    // Max players validation
+    const maxPlayers = Number(formData.maxPlayers);
+    if (!formData.maxPlayers.trim()) {
+      newErrors.maxPlayers = 'Maximum players is required';
+    } else if (isNaN(maxPlayers) || maxPlayers < 2) {
+      newErrors.maxPlayers = 'Minimum 2 players required';
+    } else if (maxPlayers > 50) {
+      newErrors.maxPlayers = 'Maximum 50 players allowed';
+    }
+
+    // Fee validation (optional field)
+    if (formData.fee.trim()) {
+      const fee = Number(formData.fee);
+      if (isNaN(fee) || fee < 0) {
+        newErrors.fee = 'Fee must be a valid number (0 or more)';
+      } else if (fee > 1000) {
+        newErrors.fee = 'Fee cannot exceed $1000';
+      }
+    }
+
+    // Date validation - allow today and future dates
+    const now = new Date();
+
+    // Create a proper session datetime by combining selected date and time
+    const sessionDateTime = new Date(selectedDate);
+    sessionDateTime.setHours(selectedTime.getHours());
+    sessionDateTime.setMinutes(selectedTime.getMinutes());
+    sessionDateTime.setSeconds(0);
+    sessionDateTime.setMilliseconds(0);
+
+    // Create date objects without time for comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const sessionDate = new Date(selectedDate);
+    sessionDate.setHours(0, 0, 0, 0);
+
+    console.log('Date validation debug:', {
+      selectedDate: selectedDate.toISOString(),
+      selectedTime: selectedTime.toISOString(),
+      sessionDateTime: sessionDateTime.toISOString(),
+      now: now.toISOString(),
+      sessionDate: sessionDate.toISOString(),
+      today: today.toISOString(),
+      isSessionDateBeforeToday: sessionDate < today,
+      isSessionDateTimeBeforeNow: sessionDateTime <= now
+    });
+
+    // Only reject if the date is actually in the past (before today)
+    if (sessionDate < today) {
+      newErrors.date = 'Session cannot be scheduled for a past date';
+    }
+    // If it's today, check if the combined date+time is in the future
+    else if (sessionDate.getTime() === today.getTime() && sessionDateTime <= now) {
+      newErrors.date = 'Session time must be in the future for today\'s date';
+    }
+
+    // Check if session is too far in the future (optional - 6 months limit)
+    const sixMonthsFromNow = new Date();
+    sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+    if (sessionDateTime > sixMonthsFromNow) {
+      newErrors.date = 'Session cannot be scheduled more than 6 months in advance';
+    }
+
+    setErrors(newErrors);
+    return Object.values(newErrors).every(error => error === '');
+  };
+
+  // Clear specific field error when user starts typing
+  const clearFieldError = (fieldName: keyof typeof errors) => {
+    if (errors[fieldName]) {
+      setErrors(prev => ({ ...prev, [fieldName]: '' }));
+    }
+  };
 
   // Helper functions for date/time formatting
   const formatDate = (date: Date) => {
@@ -238,19 +340,18 @@ export default function CreateSessionScreen() {
     console.log('Form data:', formData);
     console.log('User:', user);
 
-    // Validation
-    if (!formData.venue || !formData.fee) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to create a session');
       return;
     }
 
-    if (isNaN(Number(formData.fee)) || Number(formData.fee) < 0) {
-      Alert.alert('Error', 'Please enter a valid fee amount');
-      return;
-    }
-
-    if (isNaN(Number(formData.maxPlayers)) || Number(formData.maxPlayers) < 2) {
-      Alert.alert('Error', 'Please enter a valid number of players (minimum 2)');
+    // Validate form before submission
+    if (!validateForm()) {
+      Alert.alert(
+        'Validation Error',
+        'Please fix the errors below and try again.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -305,14 +406,18 @@ export default function CreateSessionScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Date *</Text>
             <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowDatePicker(true)}
+              style={[styles.pickerButton, errors.date ? styles.inputError : null]}
+              onPress={() => {
+                clearFieldError('date');
+                setShowDatePicker(true);
+              }}
             >
               <Text style={styles.pickerButtonText}>
                 {formatDate(selectedDate)}
               </Text>
               <Icon name="calendar-today" size={24} color="#6b7280" />
             </TouchableOpacity>
+            {errors.date ? <Text style={styles.errorText}>{errors.date}</Text> : null}
           </View>
 
           {/* Time */}
@@ -333,14 +438,18 @@ export default function CreateSessionScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Venue *</Text>
             <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowVenuePicker(true)}
+              style={[styles.pickerButton, errors.venue ? styles.inputError : null]}
+              onPress={() => {
+                clearFieldError('venue');
+                setShowVenuePicker(true);
+              }}
             >
               <Text style={styles.pickerButtonText}>
                 {formData.venue || 'Select a venue...'}
               </Text>
               <Icon name="keyboard-arrow-down" size={24} color="#6b7280" />
             </TouchableOpacity>
+            {errors.venue ? <Text style={styles.errorText}>{errors.venue}</Text> : null}
 
             {showNewVenueInput && (
               <View style={styles.newVenueContainer}>
@@ -390,24 +499,32 @@ export default function CreateSessionScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Maximum Players *</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.maxPlayers ? styles.inputError : null]}
               placeholder="4"
               value={formData.maxPlayers}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, maxPlayers: text }))}
+              onChangeText={(text) => {
+                clearFieldError('maxPlayers');
+                setFormData(prev => ({ ...prev, maxPlayers: text }));
+              }}
               keyboardType="numeric"
             />
+            {errors.maxPlayers ? <Text style={styles.errorText}>{errors.maxPlayers}</Text> : null}
           </View>
 
           {/* Fee */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Fee (S$) *</Text>
+            <Text style={styles.label}>Fee (S$) (Optional)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.fee ? styles.inputError : null]}
               placeholder="0.00"
               value={formData.fee}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, fee: text }))}
+              onChangeText={(text) => {
+                clearFieldError('fee');
+                setFormData(prev => ({ ...prev, fee: text }));
+              }}
               keyboardType="decimal-pad"
             />
+            {errors.fee ? <Text style={styles.errorText}>{errors.fee}</Text> : null}
           </View>
 
           {/* Notes */}
@@ -913,5 +1030,16 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
     marginTop: 8,
+  },
+  inputError: {
+    borderColor: '#ef4444',
+    borderWidth: 2,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
+    fontWeight: '500',
   },
 });

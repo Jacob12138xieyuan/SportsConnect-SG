@@ -180,34 +180,6 @@ export default function SessionDetailScreen() {
         <Text style={styles.host}>Hosted by {typeof session.hostId === 'object' ? session.hostId.name : session.hostName}</Text>
       </View>
 
-      {/* Participants Avatars */}
-      <View style={styles.participantsContainer}>
-        <Text style={styles.participantsTitle}>Participants</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.participantsList}>
-          {session.participants && session.participants.length > 0 ? (
-            session.participants
-              .filter((p) => typeof p === 'object' && p !== null && 'id' in p && 'name' in p)
-              .map((p) => {
-                const user = p as User;
-                return (
-                  <View key={user.id} style={styles.participantItem}>
-                    {user.avatar ? (
-                      <Image source={{ uri: user.avatar }} style={styles.participantAvatar} />
-                    ) : (
-                      <View style={styles.participantAvatarPlaceholder}>
-                        <Icon name="person" size={32} color="#9ca3af" />
-                      </View>
-                    )}
-                    <Text style={styles.participantName} numberOfLines={1}>{user.name}</Text>
-                  </View>
-                );
-              })
-          ) : (
-            <Text style={styles.noParticipantsText}>No participants yet</Text>
-          )}
-        </ScrollView>
-      </View>
-
       <View style={styles.detailsContainer}>
         <View style={styles.detailRow}>
           <Icon name="schedule" size={24} color="#2563eb" />
