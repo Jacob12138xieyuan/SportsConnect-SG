@@ -74,8 +74,7 @@ export default function SessionsScreen() {
   const renderSessionItem = ({ item }: { item: Session }) => {
     // Calculate dynamic player count (participants + host if countHostIn)
     const participantCount = item.participants ? item.participants.length : 0;
-    const hostCount = item.countHostIn ? 1 : 0;
-    const totalCurrentPlayers = participantCount + hostCount;
+    const totalCurrentPlayers = participantCount;
     const spotsLeft = item.maxPlayers - totalCurrentPlayers;
     const isFull = totalCurrentPlayers >= item.maxPlayers;
     const isAlmostFull = spotsLeft <= 2 && spotsLeft > 0;

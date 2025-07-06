@@ -194,7 +194,7 @@ export default function HomeScreen() {
               
               <View style={styles.sessionFooter}>
                 <Text style={styles.sessionPlayers}>
-                  {(session.participants?.length || 0) + (session.countHostIn ? 1 : 0)}/{session.maxPlayers} players
+                  {(session.participants?.length || 0)}/{session.maxPlayers} players
                 </Text>
                 <Text style={styles.sessionFee}>S${session.fee}</Text>
               </View>

@@ -119,8 +119,7 @@ export default function SessionDetailScreen() {
   })();
 
   // Calculate current players dynamically (participants + host if countHostIn)
-  const hostCount = session.countHostIn ? 1 : 0;
-  const currentPlayers = (session.participants?.length || 0) + hostCount;
+  const currentPlayers = session.participants?.length || 0;
   const isFull = currentPlayers >= session.maxPlayers;
   const canJoin = !isUserParticipant && !isUserHost && !isFull;
   const canLeave = isUserParticipant && !isUserHost;
