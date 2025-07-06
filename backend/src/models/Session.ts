@@ -8,7 +8,8 @@ const sessionSchema = new mongoose.Schema({
   endTime: { type: String, required: true },
   venue: { type: String, required: true },
   courtNumber: { type: String }, // Optional field for court-based sports
-  skillLevel: { type: String, required: true },
+  skillLevelStart: { type: String, required: true },
+  skillLevelEnd: { type: String, required: true },
   hostName: { type: String, required: true },
   hostId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   maxPlayers: { type: Number, required: true },

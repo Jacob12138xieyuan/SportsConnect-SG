@@ -20,6 +20,7 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { MainTabParamList, CreateSessionData } from '../types';
 import { sessionsAPI, venuesAPI } from '../services/api';
+import { getSkillLevelsForSport, formatSkillLevelRange } from '../constants/skillLevels';
 import { useAuth } from '../contexts/AuthContext';
 
 type CreateSessionScreenNavigationProp = BottomTabNavigationProp<MainTabParamList, 'CreateSession'>;
@@ -54,7 +55,8 @@ export default function CreateSessionScreen() {
     sport: 'Badminton',
     venue: '',
     courtNumber: '', // Optional court number for court-based sports
-    skillLevel: '', // Now a custom text input
+    skillLevelStart: '', // Starting skill level
+    skillLevelEnd: '',   // Ending skill level
     maxPlayers: '4',
     fee: '',
     notes: '',
@@ -64,7 +66,8 @@ export default function CreateSessionScreen() {
   // Form validation errors
   const [errors, setErrors] = useState({
     venue: '',
-    skillLevel: '',
+    skillLevelStart: '',
+    skillLevelEnd: '',
     maxPlayers: '',
     fee: '',
     startDate: '',
@@ -85,6 +88,10 @@ export default function CreateSessionScreen() {
   const [venueSearchQuery, setVenueSearchQuery] = useState('');
   const [customVenueInput, setCustomVenueInput] = useState('');
 
+  // Skill level picker states
+  const [showSkillStartPicker, setShowSkillStartPicker] = useState(false);
+  const [showSkillEndPicker, setShowSkillEndPicker] = useState(false);
+
   const sports = ['Badminton', 'Tennis', 'Basketball', 'Football', 'Table Tennis', 'Squash', 'Volleyball', 'Swimming', 'Running', 'Cycling', 'Gym/Fitness'];
 
   // Sports that require court numbers
@@ -92,6 +99,9 @@ export default function CreateSessionScreen() {
 
   // Check if current sport requires court number
   const requiresCourtNumber = courtBasedSports.includes(formData.sport);
+
+  // Get skill levels for current sport
+  const availableSkillLevels = getSkillLevelsForSport(formData.sport);
 
   // Skill level suggestions for different sports (for placeholder/examples)
   const skillLevelSuggestions: { [key: string]: string } = {
@@ -112,7 +122,8 @@ export default function CreateSessionScreen() {
   const validateForm = () => {
     const newErrors = {
       venue: '',
-      skillLevel: '',
+      skillLevelStart: '',
+      skillLevelEnd: '',
       maxPlayers: '',
       fee: '',
       startDate: '',
@@ -125,8 +136,11 @@ export default function CreateSessionScreen() {
     }
 
     // Skill level validation
-    if (!formData.skillLevel.trim()) {
-      newErrors.skillLevel = 'Skill level is required';
+    if (!formData.skillLevelStart.trim()) {
+      newErrors.skillLevelStart = 'Starting skill level is required';
+    }
+    if (!formData.skillLevelEnd.trim()) {
+      newErrors.skillLevelEnd = 'Ending skill level is required';
     }
 
     // Max players validation
@@ -441,7 +455,8 @@ export default function CreateSessionScreen() {
       endTime: formatTimeForAPI(selectedEndTime),
       venue: formData.venue,
       courtNumber: formData.courtNumber || undefined, // Only include if provided
-      skillLevel: formData.skillLevel,
+      skillLevelStart: formData.skillLevelStart,
+      skillLevelEnd: formData.skillLevelEnd,
       hostName: user?.name || '',
       maxPlayers: Number(formData.maxPlayers),
       fee: Number(formData.fee) || 0, // Default to 0 if empty
@@ -626,7 +641,7 @@ export default function CreateSessionScreen() {
               <Text style={styles.label}>Court Number</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g., Court 1, A1, 3"
+                placeholder="e.g., 1, 2, 3"
                 value={formData.courtNumber}
                 maxLength={10}
                 onChangeText={(text) => {
@@ -639,20 +654,45 @@ export default function CreateSessionScreen() {
             </View>
           )}
 
-          {/* Skill Level */}
+          {/* Skill Level Range */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Skill Level *</Text>
-            <TextInput
-              style={[styles.input, errors.skillLevel ? styles.inputError : null]}
-              placeholder={skillLevelSuggestions[formData.sport] || 'e.g., Beginner, Intermediate, Advanced'}
-              value={formData.skillLevel}
-              maxLength={30}
-              onChangeText={(text) => {
-                clearFieldError('skillLevel');
-                setFormData(prev => ({ ...prev, skillLevel: text }));
-              }}
-            />
-            {errors.skillLevel ? <Text style={styles.errorText}>{errors.skillLevel}</Text> : null}
+            <Text style={styles.label}>Skill Level Range *</Text>
+
+            {/* Starting Skill Level */}
+            <View style={styles.skillLevelRow}>
+              <View style={styles.skillLevelItem}>
+                <Text style={styles.skillLevelSubLabel}>From</Text>
+                <TouchableOpacity
+                  style={[styles.input, styles.pickerInput, errors.skillLevelStart ? styles.inputError : null]}
+                  onPress={() => setShowSkillStartPicker(true)}
+                >
+                  <Text style={[styles.inputText, !formData.skillLevelStart && styles.placeholderText]}>
+                    {formData.skillLevelStart || 'Start level'}
+                  </Text>
+                  <Icon name="arrow-drop-down" size={24} color="#6b7280" />
+                </TouchableOpacity>
+                {errors.skillLevelStart ? <Text style={styles.errorText}>{errors.skillLevelStart}</Text> : null}
+              </View>
+
+              {/* Ending Skill Level */}
+              <View style={styles.skillLevelItem}>
+                <Text style={styles.skillLevelSubLabel}>To</Text>
+                <TouchableOpacity
+                  style={[styles.input, styles.pickerInput, errors.skillLevelEnd ? styles.inputError : null]}
+                  onPress={() => setShowSkillEndPicker(true)}
+                >
+                  <Text style={[styles.inputText, !formData.skillLevelEnd && styles.placeholderText]}>
+                    {formData.skillLevelEnd || 'End level'}
+                  </Text>
+                  <Icon name="arrow-drop-down" size={24} color="#6b7280" />
+                </TouchableOpacity>
+                {errors.skillLevelEnd ? <Text style={styles.errorText}>{errors.skillLevelEnd}</Text> : null}
+              </View>
+            </View>
+
+            <Text style={styles.helperText}>
+              Select the same level for both if looking for specific skill level only
+            </Text>
           </View>
 
           {/* Max Players */}
@@ -673,7 +713,7 @@ export default function CreateSessionScreen() {
 
           {/* Fee */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Fee (S$) (Optional)</Text>
+            <Text style={styles.label}>Fee (S$)</Text>
             <TextInput
               style={[styles.input, errors.fee ? styles.inputError : null]}
               placeholder="0.00"
@@ -714,7 +754,7 @@ export default function CreateSessionScreen() {
                 value={formData.countHostIn}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, countHostIn: value }))}
                 trackColor={{ false: '#e5e7eb', true: '#3b82f6' }}
-                thumbColor={formData.countHostIn ? '#ffffff' : '#f3f4f6'}
+                thumbColor={formData.countHostIn ? '#ffffff' : '#ffffff'}
               />
             </View>
           </View>
@@ -945,6 +985,98 @@ export default function CreateSessionScreen() {
           onChange={onEndTimeChange}
         />
       )}
+
+      {/* Skill Level Start Picker Modal */}
+      <Modal
+        visible={showSkillStartPicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSkillStartPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Starting Skill Level</Text>
+              <TouchableOpacity onPress={() => setShowSkillStartPicker(false)}>
+                <Icon name="close" size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={availableSkillLevels}
+              keyExtractor={(item) => item.name}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    clearFieldError('skillLevelStart');
+                    clearFieldError('skillLevelEnd');
+                    setFormData(prev => ({
+                      ...prev,
+                      skillLevelStart: item.name,
+                      // Auto-set end level to same as start level if not set
+                      skillLevelEnd: prev.skillLevelEnd || item.name
+                    }));
+                    setShowSkillStartPicker(false);
+                  }}
+                >
+                  <View style={styles.modalItemContent}>
+                    <Text style={styles.modalItemText}>{item.name}</Text>
+                    {item.description && (
+                      <Text style={styles.modalItemDescription}>{item.description}</Text>
+                    )}
+                  </View>
+                  {formData.skillLevelStart === item.name && (
+                    <Icon name="check" size={20} color="#2563eb" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Skill Level End Picker Modal */}
+      <Modal
+        visible={showSkillEndPicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSkillEndPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Ending Skill Level</Text>
+              <TouchableOpacity onPress={() => setShowSkillEndPicker(false)}>
+                <Icon name="close" size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={availableSkillLevels}
+              keyExtractor={(item) => item.name}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    clearFieldError('skillLevelEnd');
+                    setFormData(prev => ({ ...prev, skillLevelEnd: item.name }));
+                    setShowSkillEndPicker(false);
+                  }}
+                >
+                  <View style={styles.modalItemContent}>
+                    <Text style={styles.modalItemText}>{item.name}</Text>
+                    {item.description && (
+                      <Text style={styles.modalItemDescription}>{item.description}</Text>
+                    )}
+                  </View>
+                  {formData.skillLevelEnd === item.name && (
+                    <Icon name="check" size={20} color="#2563eb" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -1237,5 +1369,40 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  // Skill level range styles
+  skillLevelRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  skillLevelItem: {
+    flex: 1,
+  },
+  skillLevelSubLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  pickerInput: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  inputText: {
+    fontSize: 16,
+    color: '#374151',
+  },
+  placeholderText: {
+    color: '#9ca3af',
+  },
+  // Modal item styles for skill level picker
+  modalItemContent: {
+    flex: 1,
+  },
+  modalItemDescription: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
   },
 });

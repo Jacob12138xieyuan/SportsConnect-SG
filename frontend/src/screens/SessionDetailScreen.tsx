@@ -15,6 +15,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { SessionStackParamList } from '../types';
 import { sessionsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { getSkillLevelColor } from '../constants/skillLevels';
 
 type SessionDetailRouteProp = RouteProp<SessionStackParamList, 'SessionDetail'>;
 type SessionDetailNavigationProp = StackNavigationProp<SessionStackParamList, 'SessionDetail'>;
@@ -106,14 +107,7 @@ export default function SessionDetailScreen() {
     return timeStr;
   };
 
-  const getSkillLevelColor = (level: string) => {
-    switch (level) {
-      case 'Beginner': return '#10b981';
-      case 'Intermediate': return '#f59e0b';
-      case 'Advanced': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
+
 
   // Helper function to check if session is expired
   const isSessionExpired = (): boolean => {
@@ -208,8 +202,8 @@ export default function SessionDetailScreen() {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.sport}>{session.sport}</Text>
-          <View style={[styles.skillBadge, { backgroundColor: getSkillLevelColor(session.skillLevel) }]}>
-            <Text style={styles.skillBadgeText}>{session.skillLevel}</Text>
+          <View style={[styles.skillBadge, { backgroundColor: getSkillLevelColor(session.skillLevelStart, session.sport) }]}>
+            <Text style={styles.skillBadgeText}>{session.skillLevelStart} - {session.skillLevelEnd}</Text>
           </View>
         </View>
         

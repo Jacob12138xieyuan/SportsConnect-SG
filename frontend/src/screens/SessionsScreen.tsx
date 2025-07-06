@@ -14,6 +14,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { SessionStackParamList, Session } from '../types';
 import { sessionsAPI } from '../services/api';
+import { getSkillLevelColor } from '../constants/skillLevels';
 
 type SessionsScreenNavigationProp = StackNavigationProp<SessionStackParamList, 'SessionList'>;
 
@@ -40,7 +41,9 @@ export default function SessionsScreen() {
                          session.hostName.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesSport = selectedSport === 'All' || session.sport === selectedSport;
-    const matchesSkill = selectedSkillLevel === 'All' || session.skillLevel === selectedSkillLevel;
+    const matchesSkill = selectedSkillLevel === 'All' ||
+                        session.skillLevelStart === selectedSkillLevel ||
+                        session.skillLevelEnd === selectedSkillLevel;
 
     return matchesSearch && matchesSport && matchesSkill;
   }).sort((a, b) => {
@@ -88,14 +91,7 @@ export default function SessionsScreen() {
     return timeStr;
   };
 
-  const getSkillLevelColor = (level: string) => {
-    switch (level) {
-      case 'Beginner': return '#10b981';
-      case 'Intermediate': return '#f59e0b';
-      case 'Advanced': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
+
 
   // Helper function to check if session is expired
   const isSessionExpired = (session: Session): boolean => {
@@ -135,8 +131,8 @@ export default function SessionsScreen() {
       >
         <View style={styles.sessionHeader}>
           <Text style={[styles.sessionSport, isExpired && styles.expiredText]}>{item.sport}</Text>
-          <View style={[styles.skillBadge, { backgroundColor: getSkillLevelColor(item.skillLevel) }]}>
-            <Text style={styles.skillBadgeText}>{item.skillLevel}</Text>
+          <View style={[styles.skillBadge, { backgroundColor: getSkillLevelColor(item.skillLevelStart, item.sport) }]}>
+            <Text style={styles.skillBadgeText}>{item.skillLevelStart} - {item.skillLevelEnd}</Text>
           </View>
         </View>
 

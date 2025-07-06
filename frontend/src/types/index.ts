@@ -23,7 +23,8 @@ export interface Session {
   endTime: string;
   venue: string;
   courtNumber?: string; // Optional court number for court-based sports
-  skillLevel: string;
+  skillLevelStart: string;
+  skillLevelEnd: string;
   hostName: string;
   hostId: User | string;
   currentPlayers: number;
@@ -46,7 +47,8 @@ export interface CreateSessionData {
   endTime: string;
   venue: string;
   courtNumber?: string; // Optional court number for court-based sports
-  skillLevel: string;
+  skillLevelStart: string;
+  skillLevelEnd: string;
   hostName: string;
   maxPlayers: number;
   fee: number;
