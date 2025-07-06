@@ -44,9 +44,16 @@ export default function CreateSessionScreen() {
   const [selectedStartTime, setSelectedStartTime] = useState(defaultStartTime);
   const [selectedEndTime, setSelectedEndTime] = useState(defaultEndTime);
 
+  // Text input values for manual entry
+  const [startDateText, setStartDateText] = useState(now.toLocaleDateString('en-CA'));
+  const [endDateText, setEndDateText] = useState(now.toLocaleDateString('en-CA'));
+  const [startTimeText, setStartTimeText] = useState(defaultStartTime.toTimeString().split(' ')[0].substring(0, 5));
+  const [endTimeText, setEndTimeText] = useState(defaultEndTime.toTimeString().split(' ')[0].substring(0, 5));
+
   const [formData, setFormData] = useState({
     sport: 'Badminton',
     venue: '',
+    courtNumber: '', // Optional court number for court-based sports
     skillLevel: '', // Now a custom text input
     maxPlayers: '4',
     fee: '',
@@ -79,6 +86,12 @@ export default function CreateSessionScreen() {
   const [customVenueInput, setCustomVenueInput] = useState('');
 
   const sports = ['Badminton', 'Tennis', 'Basketball', 'Football', 'Table Tennis', 'Squash', 'Volleyball', 'Swimming', 'Running', 'Cycling', 'Gym/Fitness'];
+
+  // Sports that require court numbers
+  const courtBasedSports = ['Badminton', 'Tennis', 'Basketball', 'Table Tennis', 'Squash', 'Volleyball'];
+
+  // Check if current sport requires court number
+  const requiresCourtNumber = courtBasedSports.includes(formData.sport);
 
   // Skill level suggestions for different sports (for placeholder/examples)
   const skillLevelSuggestions: { [key: string]: string } = {
@@ -189,23 +202,7 @@ export default function CreateSessionScreen() {
     }
   };
 
-  // Helper functions for date/time formatting
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-SG', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const formatTime = (time: Date) => {
-    return time.toLocaleTimeString('en-SG', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
+  // Helper functions for API formatting
 
   const formatDateForAPI = (date: Date) => {
     return date.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -215,14 +212,49 @@ export default function CreateSessionScreen() {
     return time.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
   };
 
+  // Formatting functions for text inputs
+  const formatDateForInput = (date: Date) => {
+    return date.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+  };
+
+  const formatTimeForInput = (time: Date) => {
+    return time.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
+  };
+
+  // Parsing functions for text inputs
+  const parseDateFromInput = (dateString: string): Date | null => {
+    try {
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? null : date;
+    } catch {
+      return null;
+    }
+  };
+
+  const parseTimeFromInput = (timeString: string, baseDate: Date = new Date()): Date | null => {
+    try {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        return null;
+      }
+      const date = new Date(baseDate);
+      date.setHours(hours, minutes, 0, 0);
+      return date;
+    } catch {
+      return null;
+    }
+  };
+
   // Date/Time change handlers
   const onStartDateChange = (event: any, selectedDate?: Date) => {
     setShowStartDatePicker(Platform.OS === 'ios');
     if (selectedDate) {
       setSelectedStartDate(selectedDate);
+      setStartDateText(formatDateForInput(selectedDate));
       // Auto-update end date to same as start date if end date is before start date
       if (selectedEndDate < selectedDate) {
         setSelectedEndDate(selectedDate);
+        setEndDateText(formatDateForInput(selectedDate));
       }
     }
   };
@@ -231,6 +263,7 @@ export default function CreateSessionScreen() {
     setShowEndDatePicker(Platform.OS === 'ios');
     if (selectedDate) {
       setSelectedEndDate(selectedDate);
+      setEndDateText(formatDateForInput(selectedDate));
     }
   };
 
@@ -238,10 +271,12 @@ export default function CreateSessionScreen() {
     setShowStartTimePicker(Platform.OS === 'ios');
     if (selectedTime) {
       setSelectedStartTime(selectedTime);
+      setStartTimeText(formatTimeForInput(selectedTime));
       // Auto-update end time to 2 hours after start time
       const newEndTime = new Date(selectedTime);
       newEndTime.setHours(newEndTime.getHours() + 2);
       setSelectedEndTime(newEndTime);
+      setEndTimeText(formatTimeForInput(newEndTime));
     }
   };
 
@@ -249,6 +284,52 @@ export default function CreateSessionScreen() {
     setShowEndTimePicker(Platform.OS === 'ios');
     if (selectedTime) {
       setSelectedEndTime(selectedTime);
+      setEndTimeText(formatTimeForInput(selectedTime));
+    }
+  };
+
+  // Text input change handlers
+  const onStartDateTextChange = (text: string) => {
+    setStartDateText(text);
+    const parsedDate = parseDateFromInput(text);
+    if (parsedDate) {
+      setSelectedStartDate(parsedDate);
+      // Auto-update end date if end date is before start date
+      if (selectedEndDate < parsedDate) {
+        setSelectedEndDate(parsedDate);
+        setEndDateText(formatDateForInput(parsedDate));
+      }
+    }
+  };
+
+  const onEndDateTextChange = (text: string) => {
+    setEndDateText(text);
+    const parsedDate = parseDateFromInput(text);
+    if (parsedDate) {
+      setSelectedEndDate(parsedDate);
+    }
+  };
+
+  const onStartTimeTextChange = (text: string) => {
+    setStartTimeText(text);
+    const parsedTime = parseTimeFromInput(text, selectedStartDate);
+    if (parsedTime) {
+      setSelectedStartTime(parsedTime);
+      // Auto-update end time to 2 hours after start time if end time is before or same as start time
+      if (selectedEndTime <= parsedTime) {
+        const newEndTime = new Date(parsedTime);
+        newEndTime.setHours(newEndTime.getHours() + 2);
+        setSelectedEndTime(newEndTime);
+        setEndTimeText(formatTimeForInput(newEndTime));
+      }
+    }
+  };
+
+  const onEndTimeTextChange = (text: string) => {
+    setEndTimeText(text);
+    const parsedTime = parseTimeFromInput(text, selectedEndDate);
+    if (parsedTime) {
+      setSelectedEndTime(parsedTime);
     }
   };
 
@@ -308,12 +389,11 @@ export default function CreateSessionScreen() {
     onSuccess: (newSession) => {
       console.log('Session created successfully:', newSession);
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      Alert.alert('Success', 'Session created successfully!', [
-        { text: 'OK', onPress: () => navigation.navigate('Sessions', {
-          screen: 'SessionDetail',
-          params: { sessionId: newSession._id }
-        })}
-      ]);
+      // Navigate directly to the session detail page
+      navigation.navigate('Sessions', {
+        screen: 'SessionDetail',
+        params: { sessionId: newSession._id }
+      });
     },
     onError: (error: any) => {
       console.error('Create session error:', error);
@@ -360,6 +440,7 @@ export default function CreateSessionScreen() {
       startTime: formatTimeForAPI(selectedStartTime),
       endTime: formatTimeForAPI(selectedEndTime),
       venue: formData.venue,
+      courtNumber: formData.courtNumber || undefined, // Only include if provided
       skillLevel: formData.skillLevel,
       hostName: user?.name || '',
       maxPlayers: Number(formData.maxPlayers),
@@ -406,65 +487,87 @@ export default function CreateSessionScreen() {
           {/* Start Date */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Start Date *</Text>
-            <TouchableOpacity
-              style={[styles.pickerButton, errors.startDate ? styles.inputError : null]}
-              onPress={() => {
-                clearFieldError('startDate');
-                setShowStartDatePicker(true);
-              }}
-            >
-              <Text style={styles.pickerButtonText}>
-                {formatDate(selectedStartDate)}
-              </Text>
-              <Icon name="calendar-today" size={24} color="#6b7280" />
-            </TouchableOpacity>
+            <View style={styles.dateTimeInputContainer}>
+              <TextInput
+                style={[styles.dateTimeInput, errors.startDate ? styles.inputError : null]}
+                placeholder="YYYY-MM-DD"
+                value={startDateText}
+                onChangeText={onStartDateTextChange}
+                onFocus={() => clearFieldError('startDate')}
+              />
+              <TouchableOpacity
+                style={styles.pickerIconButton}
+                onPress={() => {
+                  clearFieldError('startDate');
+                  setShowStartDatePicker(true);
+                }}
+              >
+                <Icon name="calendar-today" size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
             {errors.startDate ? <Text style={styles.errorText}>{errors.startDate}</Text> : null}
           </View>
 
           {/* End Date */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>End Date *</Text>
-            <TouchableOpacity
-              style={[styles.pickerButton, errors.endDate ? styles.inputError : null]}
-              onPress={() => {
-                clearFieldError('endDate');
-                setShowEndDatePicker(true);
-              }}
-            >
-              <Text style={styles.pickerButtonText}>
-                {formatDate(selectedEndDate)}
-              </Text>
-              <Icon name="calendar-today" size={24} color="#6b7280" />
-            </TouchableOpacity>
+            <View style={styles.dateTimeInputContainer}>
+              <TextInput
+                style={[styles.dateTimeInput, errors.endDate ? styles.inputError : null]}
+                placeholder="YYYY-MM-DD"
+                value={endDateText}
+                onChangeText={onEndDateTextChange}
+                onFocus={() => clearFieldError('endDate')}
+              />
+              <TouchableOpacity
+                style={styles.pickerIconButton}
+                onPress={() => {
+                  clearFieldError('endDate');
+                  setShowEndDatePicker(true);
+                }}
+              >
+                <Icon name="calendar-today" size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
             {errors.endDate ? <Text style={styles.errorText}>{errors.endDate}</Text> : null}
           </View>
 
           {/* Start Time */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Start Time *</Text>
-            <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowStartTimePicker(true)}
-            >
-              <Text style={styles.pickerButtonText}>
-                {formatTime(selectedStartTime)}
-              </Text>
-              <Icon name="access-time" size={24} color="#6b7280" />
-            </TouchableOpacity>
+            <View style={styles.dateTimeInputContainer}>
+              <TextInput
+                style={styles.dateTimeInput}
+                placeholder="HH:MM"
+                value={startTimeText}
+                onChangeText={onStartTimeTextChange}
+              />
+              <TouchableOpacity
+                style={styles.pickerIconButton}
+                onPress={() => setShowStartTimePicker(true)}
+              >
+                <Icon name="access-time" size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* End Time */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>End Time *</Text>
-            <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowEndTimePicker(true)}
-            >
-              <Text style={styles.pickerButtonText}>
-                {formatTime(selectedEndTime)}
-              </Text>
-              <Icon name="access-time" size={24} color="#6b7280" />
-            </TouchableOpacity>
+            <View style={styles.dateTimeInputContainer}>
+              <TextInput
+                style={styles.dateTimeInput}
+                placeholder="HH:MM"
+                value={endTimeText}
+                onChangeText={onEndTimeTextChange}
+              />
+              <TouchableOpacity
+                style={styles.pickerIconButton}
+                onPress={() => setShowEndTimePicker(true)}
+              >
+                <Icon name="access-time" size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Venue */}
@@ -490,6 +593,7 @@ export default function CreateSessionScreen() {
                   style={styles.input}
                   placeholder="Enter venue name"
                   value={newVenueName}
+                  maxLength={30}
                   onChangeText={setNewVenueName}
                 />
                 <View style={styles.newVenueButtons}>
@@ -516,6 +620,25 @@ export default function CreateSessionScreen() {
             )}
           </View>
 
+          {/* Court Number - Only for court-based sports */}
+          {requiresCourtNumber && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Court Number</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Court 1, A1, 3"
+                value={formData.courtNumber}
+                maxLength={10}
+                onChangeText={(text) => {
+                  setFormData(prev => ({ ...prev, courtNumber: text }));
+                }}
+              />
+              <Text style={styles.helperText}>
+                Optional - Specify which court you'll be playing on
+              </Text>
+            </View>
+          )}
+
           {/* Skill Level */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Skill Level *</Text>
@@ -523,6 +646,7 @@ export default function CreateSessionScreen() {
               style={[styles.input, errors.skillLevel ? styles.inputError : null]}
               placeholder={skillLevelSuggestions[formData.sport] || 'e.g., Beginner, Intermediate, Advanced'}
               value={formData.skillLevel}
+              maxLength={30}
               onChangeText={(text) => {
                 clearFieldError('skillLevel');
                 setFormData(prev => ({ ...prev, skillLevel: text }));
@@ -701,6 +825,7 @@ export default function CreateSessionScreen() {
                 style={styles.searchInput}
                 placeholder="Search venues or type custom venue..."
                 value={venueSearchQuery || customVenueInput}
+                maxLength={30}
                 onChangeText={(text) => {
                   setVenueSearchQuery(text);
                   setCustomVenueInput(text);
@@ -1085,5 +1210,32 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 4,
     lineHeight: 20,
+  },
+  dateTimeInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  dateTimeInput: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#1f2937',
+  },
+  pickerIconButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });

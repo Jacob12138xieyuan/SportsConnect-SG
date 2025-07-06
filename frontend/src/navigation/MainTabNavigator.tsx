@@ -19,15 +19,21 @@ const SessionStack = createStackNavigator<SessionStackParamList>();
 function SessionStackNavigator() {
   return (
     <SessionStack.Navigator>
-      <SessionStack.Screen 
-        name="SessionList" 
+      <SessionStack.Screen
+        name="SessionList"
         component={SessionsScreen}
-        options={{ title: 'Sessions' }}
+        options={{
+          title: 'Sessions',
+          headerLeft: () => null, // Remove back arrow for root screen
+        }}
       />
-      <SessionStack.Screen 
-        name="SessionDetail" 
+      <SessionStack.Screen
+        name="SessionDetail"
         component={SessionDetailScreen}
-        options={{ title: 'Session Details' }}
+        options={{
+          title: 'Session Details',
+          // Back arrow will be shown automatically for nested screens
+        }}
       />
     </SessionStack.Navigator>
   );

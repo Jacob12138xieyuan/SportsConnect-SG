@@ -38,11 +38,37 @@ export default function SessionsScreen() {
     const matchesSearch = session.venue.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          session.sport.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          session.hostName.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesSport = selectedSport === 'All' || session.sport === selectedSport;
     const matchesSkill = selectedSkillLevel === 'All' || session.skillLevel === selectedSkillLevel;
-    
+
     return matchesSearch && matchesSport && matchesSkill;
+  }).sort((a, b) => {
+    // Sort by proximity to current date/time (closest sessions first)
+    const now = new Date();
+
+    // Helper function to get session date/time as timestamp
+    const getSessionTimestamp = (session: Session): number => {
+      const sessionDate = session.startDate || session.date;
+      const sessionTime = session.startTime || session.time;
+
+      if (!sessionDate || !sessionTime) {
+        return Infinity; // Put sessions without valid date/time at the end
+      }
+
+      return new Date(`${sessionDate}T${sessionTime}`).getTime();
+    };
+
+    const timestampA = getSessionTimestamp(a);
+    const timestampB = getSessionTimestamp(b);
+    const currentTimestamp = now.getTime();
+
+    // Calculate absolute time difference from current time
+    const diffA = Math.abs(timestampA - currentTimestamp);
+    const diffB = Math.abs(timestampB - currentTimestamp);
+
+    // Sort by smallest time difference (closest to current time)
+    return diffA - diffB;
   });
 
   // Get unique sports for filter
@@ -71,6 +97,27 @@ export default function SessionsScreen() {
     }
   };
 
+  // Helper function to check if session is expired
+  const isSessionExpired = (session: Session): boolean => {
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+
+    // Get session start date and time - handle both new and legacy formats
+    const sessionStartDate = session.startDate || session.date;
+    const sessionStartTime = session.startTime || session.time;
+
+    if (!sessionStartDate || !sessionStartTime) {
+      return false; // If no date/time info, assume not expired
+    }
+
+    // Session is expired if:
+    // 1. Session start date is before today, OR
+    // 2. Session start date is today AND session start time is before current time
+    return sessionStartDate < currentDate ||
+           (sessionStartDate === currentDate && sessionStartTime < currentTime);
+  };
+
   const renderSessionItem = ({ item }: { item: Session }) => {
     // Calculate dynamic player count (participants + host if countHostIn)
     const participantCount = item.participants ? item.participants.length : 0;
@@ -78,21 +125,26 @@ export default function SessionsScreen() {
     const spotsLeft = item.maxPlayers - totalCurrentPlayers;
     const isFull = totalCurrentPlayers >= item.maxPlayers;
     const isAlmostFull = spotsLeft <= 2 && spotsLeft > 0;
+    const isExpired = isSessionExpired(item);
 
     return (
       <TouchableOpacity
-        style={styles.sessionCard}
+        style={[styles.sessionCard, isExpired && styles.expiredSessionCard]}
         onPress={() => navigation.navigate('SessionDetail', { sessionId: item._id })}
+        // Remove disabled prop - allow viewing expired sessions
       >
         <View style={styles.sessionHeader}>
-          <Text style={styles.sessionSport}>{item.sport}</Text>
+          <Text style={[styles.sessionSport, isExpired && styles.expiredText]}>{item.sport}</Text>
           <View style={[styles.skillBadge, { backgroundColor: getSkillLevelColor(item.skillLevel) }]}>
             <Text style={styles.skillBadgeText}>{item.skillLevel}</Text>
           </View>
         </View>
 
-        <Text style={styles.sessionVenue}>{item.venue}</Text>
-        <Text style={styles.sessionHost}>Hosted by {item.hostName}</Text>
+        <Text style={[styles.sessionVenue, isExpired && styles.expiredText]}>
+          {item.venue}
+          {item.courtNumber && ` • Court ${item.courtNumber}`}
+        </Text>
+        <Text style={[styles.sessionHost, isExpired && styles.expiredText]}>Hosted by {item.hostName}</Text>
 
         <View style={styles.sessionDetails}>
           <View style={styles.detailItem}>
@@ -110,15 +162,15 @@ export default function SessionsScreen() {
             <Icon
               name="group"
               size={16}
-              color={isFull ? "#ef4444" : isAlmostFull ? "#f59e0b" : "#10b981"}
+              color={isExpired ? "#9ca3af" : isFull ? "#ef4444" : isAlmostFull ? "#f59e0b" : "#10b981"}
             />
             <Text style={[
               styles.detailText,
-              { color: isFull ? "#ef4444" : isAlmostFull ? "#f59e0b" : "#374151" }
+              isExpired ? styles.expiredText : { color: isFull ? "#ef4444" : isAlmostFull ? "#f59e0b" : "#374151" }
             ]}>
               {totalCurrentPlayers}/{item.maxPlayers} players
             </Text>
-            {!isFull && (
+            {!isExpired && !isFull && (
               <Text style={styles.spotsLeftText}>
                 • {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
               </Text>
@@ -128,19 +180,19 @@ export default function SessionsScreen() {
 
         <View style={styles.sessionFooter}>
           <View style={styles.feeContainer}>
-            <Text style={styles.sessionFee}>
+            <Text style={[styles.sessionFee, isExpired && styles.expiredText]}>
               {item.fee > 0 ? `S$${item.fee}` : 'Free'}
             </Text>
           </View>
           <View style={[
             styles.availabilityBadge,
-            isFull ? styles.fullBadge : isAlmostFull ? styles.almostFullBadge : styles.availableBadge
+            isExpired ? styles.expiredAvailabilityBadge : isFull ? styles.fullBadge : isAlmostFull ? styles.almostFullBadge : styles.availableBadge
           ]}>
             <Text style={[
               styles.availabilityText,
-              isFull ? styles.fullText : isAlmostFull ? styles.almostFullText : styles.availableText
+              isExpired ? styles.expiredAvailabilityText : isFull ? styles.fullText : isAlmostFull ? styles.almostFullText : styles.availableText
             ]}>
-              {isFull ? 'Full' : isAlmostFull ? 'Almost Full' : 'Available'}
+              {isExpired ? 'Expired' : isFull ? 'Full' : isAlmostFull ? 'Almost Full' : 'Available'}
             </Text>
           </View>
         </View>
@@ -408,5 +460,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     textAlign: 'center',
+  },
+  // Expired session styles
+  expiredSessionCard: {
+    opacity: 0.6,
+    backgroundColor: '#f9fafb',
+  },
+  expiredText: {
+    color: '#9ca3af',
+  },
+  expiredAvailabilityBadge: {
+    backgroundColor: '#6b7280',
+  },
+  expiredAvailabilityText: {
+    color: '#ffffff',
   },
 });

@@ -85,14 +85,6 @@ export default function HomeScreen() {
 
       const userInvolved = isUserHost || isUserParticipant;
 
-      console.log('User involvement:', {
-        sport: session.sport,
-        isUserHost,
-        isUserParticipant,
-        userInvolved,
-        finalResult: isUpcoming && userInvolved
-      });
-
       return isUpcoming && userInvolved;
     })
     .sort((a, b) => {
@@ -109,18 +101,68 @@ export default function HomeScreen() {
     })
     .slice(0, 3);
 
-  // Debug logging
-  console.log('HomeScreen Debug:', {
-    totalSessions: sessions?.length || 0,
-    upcomingSessionsCount: upcomingSessions.length,
-    upcomingSessions: upcomingSessions.map(s => ({
-      sport: s.sport,
-      startDate: s.startDate || s.date,
-      startTime: s.startTime || s.time,
-      id: s._id
-    })),
-    currentUser: user?.id
-  });
+  // Get past sessions that the user has joined (last 5)
+  const pastSessions = sessions
+    .filter(session => {
+      // Get session date and time - handle both new and legacy formats
+      let sessionDate: string;
+      let sessionTime: string;
+
+      if (session.startDate && session.startTime) {
+        sessionDate = session.startDate;
+        sessionTime = session.startTime;
+      } else if (session.date && session.time) {
+        sessionDate = session.date;
+        sessionTime = session.time;
+      } else {
+        return false; // Skip sessions without valid date/time
+      }
+
+      // Get current date and time
+      const now = new Date();
+      const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+
+      // Session is past if:
+      // 1. Session date is before today, OR
+      // 2. Session date is today AND session time is before current time
+      const isPast = sessionDate < currentDate ||
+                    (sessionDate === currentDate && sessionTime < currentTime);
+
+      // Check if user has joined this session (either as host or participant)
+      const isUserHost = (() => {
+        if (!session.hostId || !user?.id) return false;
+        if (typeof session.hostId === 'string') {
+          return session.hostId === user.id;
+        }
+        return session.hostId._id === user.id || session.hostId.id === user.id;
+      })();
+
+      const isUserParticipant = session.participants?.some(participant => {
+        if (!participant || !user?.id) return false;
+        if (typeof participant === 'string') {
+          return participant === user.id;
+        }
+        return participant._id === user.id || participant.id === user.id;
+      }) || false;
+
+      const userInvolved = isUserHost || isUserParticipant;
+
+      return isPast && userInvolved;
+    })
+    .sort((a, b) => {
+      // Sort by date/time - handle both formats (most recent first for past sessions)
+      const getDateTime = (session: any) => {
+        const sessionDate = session.startDate || session.date;
+        const sessionTime = session.startTime || session.time;
+        if (sessionDate && sessionTime) {
+          return new Date(`${sessionDate}T${sessionTime}`).getTime();
+        }
+        return 0;
+      };
+      return getDateTime(b) - getDateTime(a); // Descending order (most recent first)
+    })
+    .slice(0, 5); // Limit to 5 past sessions
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -193,7 +235,10 @@ export default function HomeScreen() {
                 </Text>
               </View>
               
-              <Text style={styles.sessionVenue}>{session.venue}</Text>
+              <Text style={styles.sessionVenue}>
+                {session.venue}
+                {session.courtNumber && ` • Court ${session.courtNumber}`}
+              </Text>
               
               <View style={styles.sessionFooter}>
                 <Text style={styles.sessionPlayers}>
@@ -249,6 +294,49 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Joined</Text>
           </View>
         </View>
+      </View>
+
+      {/* My Past Sessions */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>My Past Sessions</Text>
+        {pastSessions.length > 0 ? (
+          pastSessions.map((session) => (
+            <TouchableOpacity
+              key={session._id}
+              style={styles.sessionCard}
+              onPress={() => navigation.navigate('Sessions', {
+                screen: 'SessionDetail',
+                params: { sessionId: session._id }
+              })}
+            >
+              <View style={styles.sessionHeader}>
+                <Text style={styles.sessionSport}>{session.sport}</Text>
+                <Text style={styles.pastSessionBadge}>Completed</Text>
+              </View>
+              <Text style={styles.sessionVenue}>
+                {session.venue}
+                {session.courtNumber && ` • Court ${session.courtNumber}`}
+              </Text>
+              <View style={styles.sessionDetails}>
+                <Text style={styles.sessionDate}>
+                  {formatDate(session.startDate || session.date || '')} • {formatTime(session.startTime || session.time || '')}
+                </Text>
+                <Text style={styles.sessionPlayers}>
+                  {(session.participants?.length || 0)}/{session.maxPlayers} players
+                </Text>
+                <Text style={styles.sessionFee}>S${session.fee}</Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Icon name="history" size={48} color="#d1d5db" />
+            <Text style={styles.emptyStateText}>No past sessions</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Your completed sessions will appear here
+            </Text>
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -402,5 +490,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     textAlign: 'center',
+  },
+  pastSessionBadge: {
+    backgroundColor: '#6b7280',
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  sessionDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
   },
 });

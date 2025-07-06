@@ -115,6 +115,29 @@ export default function SessionDetailScreen() {
     }
   };
 
+  // Helper function to check if session is expired
+  const isSessionExpired = (): boolean => {
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+
+    // Get session start date and time - handle both new and legacy formats
+    const sessionStartDate = session.startDate || session.date;
+    const sessionStartTime = session.startTime || session.time;
+
+    if (!sessionStartDate || !sessionStartTime) {
+      return false; // If no date/time info, assume not expired
+    }
+
+    // Session is expired if:
+    // 1. Session start date is before today, OR
+    // 2. Session start date is today AND session start time is before current time
+    return sessionStartDate < currentDate ||
+           (sessionStartDate === currentDate && sessionStartTime < currentTime);
+  };
+
+  const isExpired = isSessionExpired();
+
   // Check if user is a participant (handle both populated User objects and string IDs)
   const isUserParticipant = session.participants?.some(participant => {
     if (!participant || !user?.id) return false;
@@ -136,8 +159,8 @@ export default function SessionDetailScreen() {
   // Calculate current players dynamically (participants + host if countHostIn)
   const currentPlayers = session.participants?.length || 0;
   const isFull = currentPlayers >= session.maxPlayers;
-  const canJoin = !isUserParticipant && !isUserHost && !isFull;
-  const canLeave = isUserParticipant && !isUserHost;
+  const canJoin = !isUserParticipant && !isUserHost && !isFull && !isExpired;
+  const canLeave = isUserParticipant && !isUserHost && !isExpired;
 
 
 
@@ -190,7 +213,10 @@ export default function SessionDetailScreen() {
           </View>
         </View>
         
-        <Text style={styles.venue}>{session.venue}</Text>
+        <Text style={styles.venue}>
+          {session.venue}
+          {session.courtNumber && ` • Court ${session.courtNumber}`}
+        </Text>
         <Text style={styles.host}>Hosted by {typeof session.hostId === 'object' ? session.hostId.name : session.hostName}</Text>
       </View>
 
@@ -226,7 +252,10 @@ export default function SessionDetailScreen() {
           <Icon name="location-on" size={24} color="#2563eb" />
           <View style={styles.detailContent}>
             <Text style={styles.detailLabel}>Venue</Text>
-            <Text style={styles.detailValue}>{session.venue}</Text>
+            <Text style={styles.detailValue}>
+              {session.venue}
+              {session.courtNumber && ` • Court ${session.courtNumber}`}
+            </Text>
           </View>
         </View>
 
@@ -258,12 +287,14 @@ export default function SessionDetailScreen() {
             <Text style={styles.participantsTitle}>
               Participants ({currentPlayers}/{session.maxPlayers})
             </Text>
-            <View style={styles.participantsSummary}>
-              <Icon name="group" size={16} color="#6b7280" />
-              <Text style={styles.participantsSummaryText}>
-                {session.maxPlayers - currentPlayers} spots left
-              </Text>
-            </View>
+            {!isExpired && (
+              <View style={styles.participantsSummary}>
+                <Icon name="group" size={16} color="#6b7280" />
+                <Text style={styles.participantsSummaryText}>
+                  {session.maxPlayers - currentPlayers} spots left
+                </Text>
+              </View>
+            )}
           </View>
           {session.participants.map((participant, index) => {
             if (!participant) return null;
@@ -325,12 +356,14 @@ export default function SessionDetailScreen() {
             <Text style={styles.participantsTitle}>
               Participants ({currentPlayers}/{session.maxPlayers})
             </Text>
-            <View style={styles.participantsSummary}>
-              <Icon name="group" size={16} color="#6b7280" />
-              <Text style={styles.participantsSummaryText}>
-                {session.maxPlayers - currentPlayers} spots available
-              </Text>
-            </View>
+            {!isExpired && (
+              <View style={styles.participantsSummary}>
+                <Icon name="group" size={16} color="#6b7280" />
+                <Text style={styles.participantsSummaryText}>
+                  {session.maxPlayers - currentPlayers} spots available
+                </Text>
+              </View>
+            )}
           </View>
           <View style={styles.emptyParticipants}>
             <Icon name="group-add" size={48} color="#d1d5db" />
@@ -342,19 +375,21 @@ export default function SessionDetailScreen() {
         </View>
       )}
 
-      <View style={styles.statusContainer}>
-        <View style={[
-          styles.statusBadge,
-          isFull ? styles.fullBadge : styles.availableBadge
-        ]}>
-          <Text style={[
-            styles.statusText,
-            isFull ? styles.fullText : styles.availableText
+      {!isExpired && (
+        <View style={styles.statusContainer}>
+          <View style={[
+            styles.statusBadge,
+            isFull ? styles.fullBadge : styles.availableBadge
           ]}>
-            {isFull ? 'Session Full' : 'Spots Available'}
-          </Text>
+            <Text style={[
+              styles.statusText,
+              isFull ? styles.fullText : styles.availableText
+            ]}>
+              {isFull ? 'Session Full' : 'Spots Available'}
+            </Text>
+          </View>
         </View>
-      </View>
+      )}
 
       <View style={styles.actionContainer}>
         {isUserHost && (
@@ -363,16 +398,25 @@ export default function SessionDetailScreen() {
               <Icon name="star" size={20} color="#f59e0b" />
               <Text style={styles.hostBadgeText}>You are hosting this session</Text>
             </View>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={handleCancel}
-              disabled={cancelMutation.isPending}
-            >
-              <Text style={styles.cancelButtonText}>
-                {cancelMutation.isPending ? 'Cancelling...' : 'Cancel Session'}
-              </Text>
-            </TouchableOpacity>
+            {!isExpired && (
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancel}
+                disabled={cancelMutation.isPending}
+              >
+                <Text style={styles.cancelButtonText}>
+                  {cancelMutation.isPending ? 'Cancelling...' : 'Cancel Session'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </>
+        )}
+
+        {isExpired && (
+          <View style={styles.expiredBadge}>
+            <Icon name="schedule" size={20} color="#6b7280" />
+            <Text style={styles.expiredBadgeText}>This session has expired and is no longer available for joining</Text>
+          </View>
         )}
 
         {canJoin && (
@@ -853,5 +897,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  // Expired session styles
+  expiredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#6b7280',
+  },
+  expiredBadgeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginLeft: 8,
   },
 });
