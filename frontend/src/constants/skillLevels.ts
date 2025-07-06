@@ -12,7 +12,7 @@ export interface SportSkillLevels {
 export const SKILL_LEVELS: SportSkillLevels = {
   'Badminton': [
     { name: 'Low Beginner', order: 1, description: 'Just for fun, learning basics', color: '#10b981' },
-    { name: 'Mid Beginner', order: 2, description: 'Know basic rules and strokes', color: '#22c55e' },
+    { name: 'Mid Beginner', order: 2, description: 'Know basic rules and strokes', color: '#3b82f6' },
     { name: 'High Beginner', order: 3, description: 'Consistent rallies, good technique', color: '#3b82f6' },
     { name: 'Low Intermediate', order: 4, description: 'Powerful smash, good backhand', color: '#f59e0b' },
     { name: 'Advanced', order: 5, description: 'Strong tactical play, tournament level', color: '#ef4444' },
@@ -103,6 +103,29 @@ export const getSkillLevelColor = (levelName: string, sport: string): string => 
 
   // Return the specific color defined for this level
   return level.color;
+};
+
+// Check if a skill level falls within a range
+export const isSkillLevelInRange = (
+  targetLevel: string,
+  rangeStart: string,
+  rangeEnd: string,
+  sport: string
+): boolean => {
+  const levels = getSkillLevelsForSport(sport);
+
+  // Find the order values for each level
+  const targetOrder = levels.find(l => l.name === targetLevel)?.order;
+  const startOrder = levels.find(l => l.name === rangeStart)?.order;
+  const endOrder = levels.find(l => l.name === rangeEnd)?.order;
+
+  // If any level is not found, return false
+  if (targetOrder === undefined || startOrder === undefined || endOrder === undefined) {
+    return false;
+  }
+
+  // Check if target level falls within the range (inclusive)
+  return targetOrder >= startOrder && targetOrder <= endOrder;
 };
 
 export const formatSkillLevelRange = (startLevel: string, endLevel: string): string => {

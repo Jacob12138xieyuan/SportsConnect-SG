@@ -156,6 +156,9 @@ export default function SessionDetailScreen() {
   const canJoin = !isUserParticipant && !isUserHost && !isFull && !isExpired;
   const canLeave = isUserParticipant && !isUserHost && !isExpired;
 
+  // Check if user has joined (for status display)
+  const hasUserJoined = isUserParticipant;
+
 
 
   const handleJoin = () => {

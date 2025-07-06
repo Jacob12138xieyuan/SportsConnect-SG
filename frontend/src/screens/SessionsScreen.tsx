@@ -14,21 +14,28 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { SessionStackParamList, Session } from '../types';
 import { sessionsAPI } from '../services/api';
-import { getSkillLevelColor } from '../constants/skillLevels';
+import { getSkillLevelColor, getSkillLevelsForSport, isSkillLevelInRange } from '../constants/skillLevels';
+import { useAuth } from '../contexts/AuthContext';
 
 type SessionsScreenNavigationProp = StackNavigationProp<SessionStackParamList, 'SessionList'>;
 
 export default function SessionsScreen() {
   const navigation = useNavigation<SessionsScreenNavigationProp>();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSport, setSelectedSport] = useState<string>('All');
   const [selectedSkillLevel, setSelectedSkillLevel] = useState<string>('All');
+
+  // Reset skill level when sport changes
+  const handleSportChange = (sport: string) => {
+    setSelectedSport(sport);
+    setSelectedSkillLevel('All'); // Reset skill level when sport changes
+  };
 
   const {
     data: sessions = [],
     isLoading,
     refetch,
-    isRefreshing,
   } = useQuery({
     queryKey: ['sessions'],
     queryFn: sessionsAPI.getAllSessions,
@@ -43,7 +50,8 @@ export default function SessionsScreen() {
     const matchesSport = selectedSport === 'All' || session.sport === selectedSport;
     const matchesSkill = selectedSkillLevel === 'All' ||
                         session.skillLevelStart === selectedSkillLevel ||
-                        session.skillLevelEnd === selectedSkillLevel;
+                        session.skillLevelEnd === selectedSkillLevel ||
+                        isSkillLevelInRange(selectedSkillLevel, session.skillLevelStart, session.skillLevelEnd, session.sport);
 
     return matchesSearch && matchesSport && matchesSkill;
   }).sort((a, b) => {
@@ -76,7 +84,15 @@ export default function SessionsScreen() {
 
   // Get unique sports for filter
   const sports = ['All', ...Array.from(new Set(sessions.map(s => s.sport)))];
-  const skillLevels = ['All', 'Beginner', 'Intermediate', 'Advanced'];
+
+  // Get skill levels for selected sport
+  const getSkillLevelsForSelectedSport = () => {
+    if (selectedSport === 'All') return [];
+    const sportSkillLevels = getSkillLevelsForSport(selectedSport);
+    return ['All', ...sportSkillLevels.map(level => level.name)];
+  };
+
+  const skillLevels = getSkillLevelsForSelectedSport();
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -122,6 +138,17 @@ export default function SessionsScreen() {
     const isFull = totalCurrentPlayers >= item.maxPlayers;
     const isAlmostFull = spotsLeft <= 2 && spotsLeft > 0;
     const isExpired = isSessionExpired(item);
+
+    // Check if current user has joined this session
+    const hasUserJoined = user && item.participants &&
+                         item.participants.some(participant => {
+                           // Handle both string IDs and User objects
+                           if (typeof participant === 'string') {
+                             return participant === user._id;
+                           } else {
+                             return participant._id === user._id;
+                           }
+                         });
 
     return (
       <TouchableOpacity
@@ -182,13 +209,25 @@ export default function SessionsScreen() {
           </View>
           <View style={[
             styles.availabilityBadge,
-            isExpired ? styles.expiredAvailabilityBadge : isFull ? styles.fullBadge : isAlmostFull ? styles.almostFullBadge : styles.availableBadge
+            isExpired ? styles.expiredAvailabilityBadge :
+            hasUserJoined ? styles.joinedBadge :
+            isFull ? styles.fullBadge :
+            isAlmostFull ? styles.almostFullBadge :
+            styles.availableBadge
           ]}>
             <Text style={[
               styles.availabilityText,
-              isExpired ? styles.expiredAvailabilityText : isFull ? styles.fullText : isAlmostFull ? styles.almostFullText : styles.availableText
+              isExpired ? styles.expiredAvailabilityText :
+              hasUserJoined ? styles.joinedText :
+              isFull ? styles.fullText :
+              isAlmostFull ? styles.almostFullText :
+              styles.availableText
             ]}>
-              {isExpired ? 'Expired' : isFull ? 'Full' : isAlmostFull ? 'Almost Full' : 'Available'}
+              {isExpired ? 'Expired' :
+               hasUserJoined ? 'Joined' :
+               isFull ? 'Full' :
+               isAlmostFull ? 'Almost Full' :
+               'Available'}
             </Text>
           </View>
         </View>
@@ -222,7 +261,7 @@ export default function SessionsScreen() {
                 styles.filterChip,
                 selectedSport === item && styles.filterChipActive
               ]}
-              onPress={() => setSelectedSport(item)}
+              onPress={() => handleSportChange(item)}
             >
               <Text style={[
                 styles.filterChipText,
@@ -235,30 +274,33 @@ export default function SessionsScreen() {
         />
       </View>
 
-      <View style={styles.filtersContainer}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={skillLevels}
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.filterChip,
-                selectedSkillLevel === item && styles.filterChipActive
-              ]}
-              onPress={() => setSelectedSkillLevel(item)}
-            >
-              <Text style={[
-                styles.filterChipText,
-                selectedSkillLevel === item && styles.filterChipTextActive
-              ]}>
-                {item}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
+      {/* Skill Level Filter - Only show when a sport is selected */}
+      {selectedSport !== 'All' && skillLevels.length > 0 && (
+        <View style={styles.filtersContainer}>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={skillLevels}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  selectedSkillLevel === item && styles.filterChipActive
+                ]}
+                onPress={() => setSelectedSkillLevel(item)}
+              >
+                <Text style={[
+                  styles.filterChipText,
+                  selectedSkillLevel === item && styles.filterChipTextActive
+                ]}>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
 
       {/* Sessions List */}
       <FlatList
@@ -266,7 +308,7 @@ export default function SessionsScreen() {
         keyExtractor={(item) => item._id}
         renderItem={renderSessionItem}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={refetch} />
+          <RefreshControl refreshing={isLoading} onRefresh={refetch} />
         }
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
@@ -412,6 +454,9 @@ const styles = StyleSheet.create({
   availableBadge: {
     backgroundColor: '#dcfce7',
   },
+  joinedBadge: {
+    backgroundColor: '#dbeafe',
+  },
   almostFullBadge: {
     backgroundColor: '#fef3c7',
   },
@@ -434,6 +479,9 @@ const styles = StyleSheet.create({
   },
   availableText: {
     color: '#166534',
+  },
+  joinedText: {
+    color: '#1d4ed8',
   },
   almostFullText: {
     color: '#d97706',
