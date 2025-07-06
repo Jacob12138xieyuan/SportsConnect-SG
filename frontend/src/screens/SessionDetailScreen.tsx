@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Image,
+  Modal,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRoute, RouteProp } from '@react-navigation/native';
@@ -24,6 +24,10 @@ export default function SessionDetailScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  // State for confirmation modals
+  const [showJoinConfirmation, setShowJoinConfirmation] = useState(false);
+  const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
+
   const {
     data: session,
     isLoading,
@@ -35,15 +39,12 @@ export default function SessionDetailScreen() {
 
   const joinMutation = useMutation({
     mutationFn: () => sessionsAPI.joinSession(sessionId),
-    onSuccess: (updatedSession) => {
-      console.log('Join successful, updated session:', updatedSession);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      Alert.alert('Success', 'You have joined the session!');
     },
     onError: (error: any) => {
-      console.error('Join error:', error);
-      Alert.alert('Error', error.response?.data?.error || 'Failed to join session');
+      console.error('Failed to join session:', error.response?.data?.error || error.message);
     },
   });
 
@@ -52,12 +53,13 @@ export default function SessionDetailScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      Alert.alert('Success', 'You have left the session');
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to leave session');
+      console.error('Failed to leave session:', error.response?.data?.error || error.message);
     },
   });
+
+
 
   if (isLoading) {
     return (
@@ -116,54 +118,39 @@ export default function SessionDetailScreen() {
     return session.hostId._id === user.id || session.hostId.id === user.id;
   })();
 
-  const isFull = session.currentPlayers >= session.maxPlayers;
+  // Calculate current players dynamically (participants + host if countHostIn)
+  const hostCount = session.countHostIn ? 1 : 0;
+  const currentPlayers = (session.participants?.length || 0) + hostCount;
+  const isFull = currentPlayers >= session.maxPlayers;
   const canJoin = !isUserParticipant && !isUserHost && !isFull;
   const canLeave = isUserParticipant && !isUserHost;
 
-  // Debug logging
-  console.log('Session Detail Debug:', {
-    sessionId,
-    userId: user?.id,
-    isUserParticipant,
-    isUserHost,
-    isFull,
-    canJoin,
-    canLeave,
-    currentPlayers: session.currentPlayers,
-    maxPlayers: session.maxPlayers,
-    participants: session.participants
-  });
+
 
   const handleJoin = () => {
-    console.log('Join button pressed for session:', sessionId);
-    console.log('Current user:', user);
-    console.log('Can join?', canJoin);
-    console.log('Is user participant?', isUserParticipant);
-    console.log('Is user host?', isUserHost);
-    console.log('Is full?', isFull);
+    setShowJoinConfirmation(true);
+  };
 
-    Alert.alert(
-      'Join Session',
-      `Are you sure you want to join this ${session.sport} session for S$${session.fee}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Join', onPress: () => {
-          console.log('User confirmed join, calling mutation...');
-          joinMutation.mutate();
-        }},
-      ]
-    );
+  const confirmJoin = () => {
+    setShowJoinConfirmation(false);
+    joinMutation.mutate();
+  };
+
+  const cancelJoin = () => {
+    setShowJoinConfirmation(false);
   };
 
   const handleLeave = () => {
-    Alert.alert(
-      'Leave Session',
-      'Are you sure you want to leave this session?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Leave', style: 'destructive', onPress: () => leaveMutation.mutate() },
-      ]
-    );
+    setShowLeaveConfirmation(true);
+  };
+
+  const confirmLeave = () => {
+    setShowLeaveConfirmation(false);
+    leaveMutation.mutate();
+  };
+
+  const cancelLeave = () => {
+    setShowLeaveConfirmation(false);
   };
 
   return (
@@ -185,12 +172,26 @@ export default function SessionDetailScreen() {
           <Icon name="schedule" size={24} color="#2563eb" />
           <View style={styles.detailContent}>
             <Text style={styles.detailLabel}>Date & Time</Text>
-            <Text style={styles.detailValue}>
-              {formatDate(session.date)}
-            </Text>
-            <Text style={styles.detailValue}>
-              {formatTime(session.time)}
-            </Text>
+            {/* Handle both new and legacy date formats */}
+            {session.startDate ? (
+              <>
+                <Text style={styles.detailValue}>
+                  {formatDate(session.startDate)} {session.endDate !== session.startDate ? `- ${formatDate(session.endDate)}` : ''}
+                </Text>
+                <Text style={styles.detailValue}>
+                  {formatTime(session.startTime)} - {formatTime(session.endTime)}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.detailValue}>
+                  {formatDate(session.date!)}
+                </Text>
+                <Text style={styles.detailValue}>
+                  {formatTime(session.time!)}
+                </Text>
+              </>
+            )}
           </View>
         </View>
 
@@ -228,12 +229,12 @@ export default function SessionDetailScreen() {
         <View style={styles.participantsContainer}>
           <View style={styles.participantsHeader}>
             <Text style={styles.participantsTitle}>
-              Participants ({session.participants.length}/{session.maxPlayers})
+              Participants ({currentPlayers}/{session.maxPlayers})
             </Text>
             <View style={styles.participantsSummary}>
               <Icon name="group" size={16} color="#6b7280" />
               <Text style={styles.participantsSummaryText}>
-                {session.maxPlayers - session.participants.length} spots left
+                {session.maxPlayers - currentPlayers} spots left
               </Text>
             </View>
           </View>
@@ -295,12 +296,12 @@ export default function SessionDetailScreen() {
         <View style={styles.participantsContainer}>
           <View style={styles.participantsHeader}>
             <Text style={styles.participantsTitle}>
-              Participants (0/{session.maxPlayers})
+              Participants ({hostCount}/{session.maxPlayers})
             </Text>
             <View style={styles.participantsSummary}>
               <Icon name="group" size={16} color="#6b7280" />
               <Text style={styles.participantsSummaryText}>
-                {session.maxPlayers} spots available
+                {session.maxPlayers - hostCount} spots available
               </Text>
             </View>
           </View>
@@ -348,6 +349,12 @@ export default function SessionDetailScreen() {
           </TouchableOpacity>
         )}
 
+        {isUserParticipant && !isUserHost && (
+          <View style={styles.participantBadge}>
+            <Icon name="check-circle" size={20} color="#10b981" />
+            <Text style={styles.participantBadgeText}>You have joined this session</Text>
+          </View>
+        )}
         {canLeave && (
           <TouchableOpacity
             style={styles.leaveButton}
@@ -360,13 +367,57 @@ export default function SessionDetailScreen() {
           </TouchableOpacity>
         )}
 
-        {isUserParticipant && !isUserHost && (
-          <View style={styles.participantBadge}>
-            <Icon name="check-circle" size={20} color="#10b981" />
-            <Text style={styles.participantBadgeText}>You have joined this session</Text>
-          </View>
-        )}
       </View>
+
+      {/* Join Confirmation Modal */}
+      <Modal
+        visible={showJoinConfirmation}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={cancelJoin}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Join Session</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to join this {session.sport} session for S${session.fee}?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancelButton} onPress={cancelJoin}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirmButton} onPress={confirmJoin}>
+                <Text style={styles.modalConfirmText}>Join</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Leave Confirmation Modal */}
+      <Modal
+        visible={showLeaveConfirmation}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={cancelLeave}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Leave Session</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to leave this session?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancelButton} onPress={cancelLeave}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalLeaveButton} onPress={confirmLeave}>
+                <Text style={styles.modalLeaveText}>Leave</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -538,39 +589,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  participantsContainer: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  participantsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
+
   participantsList: {
     flexDirection: 'row',
   },
-  participantItem: {
-    alignItems: 'center',
-    marginRight: 16,
-    width: 64,
-  },
-  participantAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginBottom: 4,
-    backgroundColor: '#e5e7eb',
-  },
+
   participantAvatarPlaceholder: {
     width: 48,
     height: 48,
@@ -580,12 +603,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 4,
   },
-  participantName: {
-    fontSize: 12,
-    color: '#374151',
-    textAlign: 'center',
-    maxWidth: 60,
-  },
+
   noParticipantsText: {
     color: '#9ca3af',
     fontSize: 14,
@@ -685,5 +703,79 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     textAlign: 'center',
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 24,
+    margin: 20,
+    minWidth: 300,
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#4b5563',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  modalConfirmButton: {
+    flex: 1,
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  modalLeaveButton: {
+    flex: 1,
+    backgroundColor: '#dc2626',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalLeaveText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });

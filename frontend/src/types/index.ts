@@ -17,8 +17,10 @@ export interface AuthResponse {
 export interface Session {
   _id: string;
   sport: string;
-  date: string;
-  time: string;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
   venue: string;
   skillLevel: string;
   hostName: string;
@@ -28,20 +30,27 @@ export interface Session {
   fee: number;
   notes?: string;
   participants?: (User | string)[];
+  countHostIn: boolean;
   createdAt: string;
   updatedAt: string;
+  // Legacy fields for backward compatibility
+  date?: string;
+  time?: string;
 }
 
 export interface CreateSessionData {
   sport: string;
-  date: string;
-  time: string;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
   venue: string;
   skillLevel: string;
   hostName: string;
   maxPlayers: number;
   fee: number;
   notes?: string;
+  countHostIn: boolean;
 }
 
 // Venue types

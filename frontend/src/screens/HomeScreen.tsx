@@ -9,13 +9,18 @@ import {
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
+import { CompositeNavigationProp } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { MainTabParamList, Session } from '../types';
+import { MainTabParamList, SessionStackParamList, Session } from '../types';
 import { sessionsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
-type HomeScreenNavigationProp = BottomTabNavigationProp<MainTabParamList, 'Home'>;
+type HomeScreenNavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, 'Home'>,
+  StackNavigationProp<SessionStackParamList>
+>;
 
 export default function HomeScreen() {
   const navigation = useNavigation<HomeScreenNavigationProp>();
@@ -25,7 +30,7 @@ export default function HomeScreen() {
     data: sessions = [],
     isLoading,
     refetch,
-    isRefreshing,
+    isFetching,
   } = useQuery({
     queryKey: ['sessions'],
     queryFn: sessionsAPI.getAllSessions,
@@ -34,9 +39,32 @@ export default function HomeScreen() {
   // Get upcoming sessions that the user has joined (next 3)
   const upcomingSessions = sessions
     .filter(session => {
-      // Check if session is in the future
-      const sessionDateTime = new Date(`${session.date} ${session.time}`);
-      const isUpcoming = sessionDateTime > new Date();
+      // Get session date and time - handle both new and legacy formats
+      let sessionDate: string;
+      let sessionTime: string;
+
+      if (session.startDate && session.startTime) {
+        sessionDate = session.startDate;
+        sessionTime = session.startTime;
+      } else if (session.date && session.time) {
+        sessionDate = session.date;
+        sessionTime = session.time;
+      } else {
+        return false; // Skip sessions without valid date/time
+      }
+
+      // Get current date and time
+      const now = new Date();
+      const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+
+      // Session is upcoming if:
+      // 1. Session date is after today, OR
+      // 2. Session date is today AND session time is after current time
+      const isUpcoming = sessionDate > currentDate ||
+                        (sessionDate === currentDate && sessionTime > currentTime);
+
+
 
       // Check if user has joined this session (either as host or participant)
       const isUserHost = (() => {
@@ -55,10 +83,44 @@ export default function HomeScreen() {
         return participant._id === user.id || participant.id === user.id;
       }) || false;
 
-      return isUpcoming && (isUserHost || isUserParticipant);
+      const userInvolved = isUserHost || isUserParticipant;
+
+      console.log('User involvement:', {
+        sport: session.sport,
+        isUserHost,
+        isUserParticipant,
+        userInvolved,
+        finalResult: isUpcoming && userInvolved
+      });
+
+      return isUpcoming && userInvolved;
     })
-    .sort((a, b) => new Date(`${a.date} ${a.time}`).getTime() - new Date(`${b.date} ${b.time}`).getTime())
+    .sort((a, b) => {
+      // Sort by date/time - handle both formats (earliest first)
+      const getDateTime = (session: any) => {
+        const sessionDate = session.startDate || session.date;
+        const sessionTime = session.startTime || session.time;
+        if (sessionDate && sessionTime) {
+          return new Date(`${sessionDate}T${sessionTime}`).getTime();
+        }
+        return 0;
+      };
+      return getDateTime(a) - getDateTime(b);
+    })
     .slice(0, 3);
+
+  // Debug logging
+  console.log('HomeScreen Debug:', {
+    totalSessions: sessions?.length || 0,
+    upcomingSessionsCount: upcomingSessions.length,
+    upcomingSessions: upcomingSessions.map(s => ({
+      sport: s.sport,
+      startDate: s.startDate || s.date,
+      startTime: s.startTime || s.time,
+      id: s._id
+    })),
+    currentUser: user?.id
+  });
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -77,7 +139,7 @@ export default function HomeScreen() {
     <ScrollView 
       style={styles.container}
       refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={refetch} />
+        <RefreshControl refreshing={isFetching} onRefresh={refetch} />
       }
     >
       <View style={styles.header}>
@@ -115,12 +177,16 @@ export default function HomeScreen() {
             <TouchableOpacity
               key={session._id}
               style={styles.sessionCard}
-              onPress={() => navigation.navigate('Sessions')}
+              onPress={() => navigation.navigate('SessionDetail', { sessionId: session._id })}
             >
               <View style={styles.sessionHeader}>
                 <Text style={styles.sessionSport}>{session.sport}</Text>
                 <Text style={styles.sessionDate}>
-                  {formatDate(session.date)} • {formatTime(session.time)}
+                  {/* Handle both new and legacy date formats */}
+                  {session.startDate && session.startTime ?
+                    `${formatDate(session.startDate)} • ${formatTime(session.startTime)}${session.endDate !== session.startDate ? ` - ${formatDate(session.endDate)}` : ''} • ${formatTime(session.endTime)}` :
+                    `${formatDate(session.date!)} • ${formatTime(session.time!)}`
+                  }
                 </Text>
               </View>
               
@@ -128,7 +194,7 @@ export default function HomeScreen() {
               
               <View style={styles.sessionFooter}>
                 <Text style={styles.sessionPlayers}>
-                  {session.currentPlayers}/{session.maxPlayers} players
+                  {(session.participants?.length || 0) + (session.countHostIn ? 1 : 0)}/{session.maxPlayers} players
                 </Text>
                 <Text style={styles.sessionFee}>S${session.fee}</Text>
               </View>

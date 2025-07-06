@@ -11,6 +11,7 @@ import {
   Platform,
   Modal,
   FlatList,
+  Switch,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,40 +29,49 @@ export default function CreateSessionScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Initialize with current date and future time
+  // Initialize with current date and future times
   const now = new Date();
-  const defaultTime = new Date();
-  defaultTime.setHours(defaultTime.getHours() + 2); // Set default time to 2 hours from now
-  defaultTime.setMinutes(0); // Round to the hour
-  defaultTime.setSeconds(0);
+  const defaultStartTime = new Date();
+  defaultStartTime.setHours(defaultStartTime.getHours() + 2); // Set default start time to 2 hours from now
+  defaultStartTime.setMinutes(0); // Round to the hour
+  defaultStartTime.setSeconds(0);
 
-  const [selectedDate, setSelectedDate] = useState(now);
-  const [selectedTime, setSelectedTime] = useState(defaultTime);
+  const defaultEndTime = new Date(defaultStartTime);
+  defaultEndTime.setHours(defaultEndTime.getHours() + 2); // End time is 2 hours after start time
+
+  const [selectedStartDate, setSelectedStartDate] = useState(now);
+  const [selectedEndDate, setSelectedEndDate] = useState(now); // Default same as start date
+  const [selectedStartTime, setSelectedStartTime] = useState(defaultStartTime);
+  const [selectedEndTime, setSelectedEndTime] = useState(defaultEndTime);
 
   const [formData, setFormData] = useState({
     sport: 'Badminton',
     venue: '',
-    skillLevel: 'Mid Beginner', // Default to a valid skill level for Badminton
+    skillLevel: '', // Now a custom text input
     maxPlayers: '4',
     fee: '',
     notes: '',
+    countHostIn: true, // Default to true (host counts in player limit)
   });
 
   // Form validation errors
   const [errors, setErrors] = useState({
     venue: '',
+    skillLevel: '',
     maxPlayers: '',
     fee: '',
-    date: '',
+    startDate: '',
+    endDate: '',
   });
 
   const [newVenueName, setNewVenueName] = useState('');
   const [showNewVenueInput, setShowNewVenueInput] = useState(false);
   const [showSportPicker, setShowSportPicker] = useState(false);
-  const [showSkillPicker, setShowSkillPicker] = useState(false);
   const [showVenuePicker, setShowVenuePicker] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
   // Search states
   const [sportSearchQuery, setSportSearchQuery] = useState('');
@@ -70,70 +80,40 @@ export default function CreateSessionScreen() {
 
   const sports = ['Badminton', 'Tennis', 'Basketball', 'Football', 'Table Tennis', 'Squash', 'Volleyball', 'Swimming', 'Running', 'Cycling', 'Gym/Fitness'];
 
-  // Sport-specific skill levels
-  const sportSkillLevels: { [key: string]: string[] } = {
-    'Badminton': [
-      'Low Beginner', 'Mid Beginner', 'High Beginner',
-      'Low Intermediate', 'Mid Intermediate', 'High Intermediate',
-      'Low Advanced', 'Mid Advanced', 'High Advanced', 'Expert'
-    ],
-    'Tennis': [
-      'Beginner (0-2.5)', 'Intermediate (3.0-3.5)', 'Advanced (4.0-4.5)',
-      'Expert (5.0+)', 'Tournament Level'
-    ],
-    'Basketball': [
-      'Recreational', 'Casual Player', 'Regular Player',
-      'Competitive', 'Semi-Pro', 'Professional Level'
-    ],
-    'Football': [
-      'Casual Kickabout', 'Recreational', 'Club Level',
-      'Competitive', 'Semi-Pro', 'Professional'
-    ],
-    'Table Tennis': [
-      'Beginner', 'Recreational', 'Club Player',
-      'Tournament Player', 'Advanced', 'Expert'
-    ],
-    'Squash': [
-      'Beginner', 'Recreational', 'Club Standard',
-      'County Level', 'Regional', 'National Level'
-    ],
-    'Volleyball': [
-      'Beginner', 'Recreational', 'Intermediate',
-      'Competitive', 'Advanced', 'Elite'
-    ],
-    'Swimming': [
-      'Beginner', 'Recreational Swimmer', 'Fitness Swimmer',
-      'Competitive', 'Advanced', 'Elite/Masters'
-    ],
-    'Running': [
-      'Beginner (0-5km)', 'Recreational (5-10km)', 'Regular Runner (10-21km)',
-      'Serious Runner (21km+)', 'Competitive', 'Elite'
-    ],
-    'Cycling': [
-      'Casual Rider', 'Recreational', 'Regular Cyclist',
-      'Enthusiast', 'Competitive', 'Racing Level'
-    ],
-    'Gym/Fitness': [
-      'Beginner', 'Regular Gym Goer', 'Intermediate',
-      'Advanced', 'Fitness Enthusiast', 'Athlete Level'
-    ]
+  // Skill level suggestions for different sports (for placeholder/examples)
+  const skillLevelSuggestions: { [key: string]: string } = {
+    'Badminton': 'e.g., Mid Beginner, High Intermediate, Expert',
+    'Tennis': 'e.g., 3.5 NTRP, Intermediate, Advanced',
+    'Basketball': 'e.g., Recreational, Competitive, Semi-Pro',
+    'Football': 'e.g., Casual, Club Level, Competitive',
+    'Table Tennis': 'e.g., Club Player, Tournament Level',
+    'Squash': 'e.g., Club Standard, County Level',
+    'Volleyball': 'e.g., Recreational, Competitive',
+    'Swimming': 'e.g., Fitness Swimmer, Competitive',
+    'Running': 'e.g., 5-10km pace, Marathon runner',
+    'Cycling': 'e.g., Recreational, Racing Level',
+    'Gym/Fitness': 'e.g., Beginner, Advanced'
   };
-
-  // Get skill levels for current sport
-  const currentSkillLevels = sportSkillLevels[formData.sport] || ['Beginner', 'Intermediate', 'Advanced'];
 
   // Validation functions
   const validateForm = () => {
     const newErrors = {
       venue: '',
+      skillLevel: '',
       maxPlayers: '',
       fee: '',
-      date: '',
+      startDate: '',
+      endDate: '',
     };
 
     // Venue validation
     if (!formData.venue.trim()) {
       newErrors.venue = 'Venue is required';
+    }
+
+    // Skill level validation
+    if (!formData.skillLevel.trim()) {
+      newErrors.skillLevel = 'Skill level is required';
     }
 
     // Max players validation
@@ -159,45 +139,43 @@ export default function CreateSessionScreen() {
     // Date validation - allow today and future dates
     const now = new Date();
 
-    // Create a proper session datetime by combining selected date and time
-    const sessionDateTime = new Date(selectedDate);
-    sessionDateTime.setHours(selectedTime.getHours());
-    sessionDateTime.setMinutes(selectedTime.getMinutes());
-    sessionDateTime.setSeconds(0);
-    sessionDateTime.setMilliseconds(0);
+    // Create proper start and end datetimes
+    const startDateTime = new Date(selectedStartDate);
+    startDateTime.setHours(selectedStartTime.getHours());
+    startDateTime.setMinutes(selectedStartTime.getMinutes());
+    startDateTime.setSeconds(0);
+    startDateTime.setMilliseconds(0);
+
+    const endDateTime = new Date(selectedEndDate);
+    endDateTime.setHours(selectedEndTime.getHours());
+    endDateTime.setMinutes(selectedEndTime.getMinutes());
+    endDateTime.setSeconds(0);
+    endDateTime.setMilliseconds(0);
 
     // Create date objects without time for comparison
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const sessionDate = new Date(selectedDate);
-    sessionDate.setHours(0, 0, 0, 0);
+    const startDate = new Date(selectedStartDate);
+    startDate.setHours(0, 0, 0, 0);
 
-    console.log('Date validation debug:', {
-      selectedDate: selectedDate.toISOString(),
-      selectedTime: selectedTime.toISOString(),
-      sessionDateTime: sessionDateTime.toISOString(),
-      now: now.toISOString(),
-      sessionDate: sessionDate.toISOString(),
-      today: today.toISOString(),
-      isSessionDateBeforeToday: sessionDate < today,
-      isSessionDateTimeBeforeNow: sessionDateTime <= now
-    });
-
-    // Only reject if the date is actually in the past (before today)
-    if (sessionDate < today) {
-      newErrors.date = 'Session cannot be scheduled for a past date';
+    // Validate start date
+    if (startDate < today) {
+      newErrors.startDate = 'Start date cannot be in the past';
+    } else if (startDate.getTime() === today.getTime() && startDateTime <= now) {
+      newErrors.startDate = 'Start time must be in the future for today\'s date';
     }
-    // If it's today, check if the combined date+time is in the future
-    else if (sessionDate.getTime() === today.getTime() && sessionDateTime <= now) {
-      newErrors.date = 'Session time must be in the future for today\'s date';
+
+    // Validate end date/time
+    if (endDateTime <= startDateTime) {
+      newErrors.endDate = 'End date/time must be after start date/time';
     }
 
     // Check if session is too far in the future (optional - 6 months limit)
     const sixMonthsFromNow = new Date();
     sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
-    if (sessionDateTime > sixMonthsFromNow) {
-      newErrors.date = 'Session cannot be scheduled more than 6 months in advance';
+    if (startDateTime > sixMonthsFromNow) {
+      newErrors.startDate = 'Session cannot be scheduled more than 6 months in advance';
     }
 
     setErrors(newErrors);
@@ -238,17 +216,39 @@ export default function CreateSessionScreen() {
   };
 
   // Date/Time change handlers
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
+  const onStartDateChange = (event: any, selectedDate?: Date) => {
+    setShowStartDatePicker(Platform.OS === 'ios');
     if (selectedDate) {
-      setSelectedDate(selectedDate);
+      setSelectedStartDate(selectedDate);
+      // Auto-update end date to same as start date if end date is before start date
+      if (selectedEndDate < selectedDate) {
+        setSelectedEndDate(selectedDate);
+      }
     }
   };
 
-  const onTimeChange = (event: any, selectedTime?: Date) => {
-    setShowTimePicker(Platform.OS === 'ios');
+  const onEndDateChange = (event: any, selectedDate?: Date) => {
+    setShowEndDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setSelectedEndDate(selectedDate);
+    }
+  };
+
+  const onStartTimeChange = (event: any, selectedTime?: Date) => {
+    setShowStartTimePicker(Platform.OS === 'ios');
     if (selectedTime) {
-      setSelectedTime(selectedTime);
+      setSelectedStartTime(selectedTime);
+      // Auto-update end time to 2 hours after start time
+      const newEndTime = new Date(selectedTime);
+      newEndTime.setHours(newEndTime.getHours() + 2);
+      setSelectedEndTime(newEndTime);
+    }
+  };
+
+  const onEndTimeChange = (event: any, selectedTime?: Date) => {
+    setShowEndTimePicker(Platform.OS === 'ios');
+    if (selectedTime) {
+      setSelectedEndTime(selectedTime);
     }
   };
 
@@ -262,14 +262,12 @@ export default function CreateSessionScreen() {
     }
   };
 
-  // Handle sport selection with skill level reset
+  // Handle sport selection
   const handleSportSelection = (sport: string) => {
-    const newSkillLevels = sportSkillLevels[sport] || ['Beginner', 'Intermediate', 'Advanced'];
     setFormData(prev => ({
       ...prev,
       sport: sport,
-      venue: '',
-      skillLevel: newSkillLevels[0] // Reset to first skill level of new sport
+      venue: '' // Reset venue when sport changes
     }));
     closeSportPicker();
   };
@@ -357,14 +355,17 @@ export default function CreateSessionScreen() {
 
     const sessionData: CreateSessionData = {
       sport: formData.sport,
-      date: formatDateForAPI(selectedDate),
-      time: formatTimeForAPI(selectedTime),
+      startDate: formatDateForAPI(selectedStartDate),
+      endDate: formatDateForAPI(selectedEndDate),
+      startTime: formatTimeForAPI(selectedStartTime),
+      endTime: formatTimeForAPI(selectedEndTime),
       venue: formData.venue,
       skillLevel: formData.skillLevel,
       hostName: user?.name || '',
       maxPlayers: Number(formData.maxPlayers),
-      fee: Number(formData.fee),
+      fee: Number(formData.fee) || 0, // Default to 0 if empty
       notes: formData.notes || undefined,
+      countHostIn: formData.countHostIn,
     };
 
     console.log('Submitting session data:', sessionData);
@@ -402,33 +403,65 @@ export default function CreateSessionScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Date */}
+          {/* Start Date */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Date *</Text>
+            <Text style={styles.label}>Start Date *</Text>
             <TouchableOpacity
-              style={[styles.pickerButton, errors.date ? styles.inputError : null]}
+              style={[styles.pickerButton, errors.startDate ? styles.inputError : null]}
               onPress={() => {
-                clearFieldError('date');
-                setShowDatePicker(true);
+                clearFieldError('startDate');
+                setShowStartDatePicker(true);
               }}
             >
               <Text style={styles.pickerButtonText}>
-                {formatDate(selectedDate)}
+                {formatDate(selectedStartDate)}
               </Text>
               <Icon name="calendar-today" size={24} color="#6b7280" />
             </TouchableOpacity>
-            {errors.date ? <Text style={styles.errorText}>{errors.date}</Text> : null}
+            {errors.startDate ? <Text style={styles.errorText}>{errors.startDate}</Text> : null}
           </View>
 
-          {/* Time */}
+          {/* End Date */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Time *</Text>
+            <Text style={styles.label}>End Date *</Text>
             <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowTimePicker(true)}
+              style={[styles.pickerButton, errors.endDate ? styles.inputError : null]}
+              onPress={() => {
+                clearFieldError('endDate');
+                setShowEndDatePicker(true);
+              }}
             >
               <Text style={styles.pickerButtonText}>
-                {formatTime(selectedTime)}
+                {formatDate(selectedEndDate)}
+              </Text>
+              <Icon name="calendar-today" size={24} color="#6b7280" />
+            </TouchableOpacity>
+            {errors.endDate ? <Text style={styles.errorText}>{errors.endDate}</Text> : null}
+          </View>
+
+          {/* Start Time */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Start Time *</Text>
+            <TouchableOpacity
+              style={styles.pickerButton}
+              onPress={() => setShowStartTimePicker(true)}
+            >
+              <Text style={styles.pickerButtonText}>
+                {formatTime(selectedStartTime)}
+              </Text>
+              <Icon name="access-time" size={24} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+
+          {/* End Time */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>End Time *</Text>
+            <TouchableOpacity
+              style={styles.pickerButton}
+              onPress={() => setShowEndTimePicker(true)}
+            >
+              <Text style={styles.pickerButtonText}>
+                {formatTime(selectedEndTime)}
               </Text>
               <Icon name="access-time" size={24} color="#6b7280" />
             </TouchableOpacity>
@@ -486,13 +519,16 @@ export default function CreateSessionScreen() {
           {/* Skill Level */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Skill Level *</Text>
-            <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowSkillPicker(true)}
-            >
-              <Text style={styles.pickerButtonText}>{formData.skillLevel}</Text>
-              <Icon name="keyboard-arrow-down" size={24} color="#6b7280" />
-            </TouchableOpacity>
+            <TextInput
+              style={[styles.input, errors.skillLevel ? styles.inputError : null]}
+              placeholder={skillLevelSuggestions[formData.sport] || 'e.g., Beginner, Intermediate, Advanced'}
+              value={formData.skillLevel}
+              onChangeText={(text) => {
+                clearFieldError('skillLevel');
+                setFormData(prev => ({ ...prev, skillLevel: text }));
+              }}
+            />
+            {errors.skillLevel ? <Text style={styles.errorText}>{errors.skillLevel}</Text> : null}
           </View>
 
           {/* Max Players */}
@@ -539,6 +575,25 @@ export default function CreateSessionScreen() {
               numberOfLines={4}
               textAlignVertical="top"
             />
+          </View>
+
+          {/* Count Host In */}
+          <View style={styles.inputGroup}>
+            <View style={styles.switchContainer}>
+              <View style={styles.switchLabelContainer}>
+                <Text style={styles.label}>Count host in player limit</Text>
+                <Text style={styles.switchDescription}>
+                  When enabled, you (the host) count towards the maximum players.
+                  When disabled, you can have additional players beyond the limit.
+                </Text>
+              </View>
+              <Switch
+                value={formData.countHostIn}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, countHostIn: value }))}
+                trackColor={{ false: '#e5e7eb', true: '#3b82f6' }}
+                thumbColor={formData.countHostIn ? '#ffffff' : '#f3f4f6'}
+              />
+            </View>
           </View>
 
           {/* Submit Button */}
@@ -622,53 +677,7 @@ export default function CreateSessionScreen() {
         </View>
       </Modal>
 
-      {/* Skill Level Picker Modal */}
-      <Modal
-        visible={showSkillPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowSkillPicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Select Skill Level</Text>
-                <Text style={styles.modalSubtitle}>for {formData.sport}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowSkillPicker(false)}>
-                <Icon name="close" size={24} color="#6b7280" />
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={currentSkillLevels}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.modalItem,
-                    formData.skillLevel === item && styles.modalItemSelected
-                  ]}
-                  onPress={() => {
-                    setFormData(prev => ({ ...prev, skillLevel: item }));
-                    setShowSkillPicker(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.modalItemText,
-                    formData.skillLevel === item && styles.modalItemTextSelected
-                  ]}>
-                    {item}
-                  </Text>
-                  {formData.skillLevel === item && (
-                    <Icon name="check" size={20} color="#2563eb" />
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
+
 
       {/* Venue Picker Modal */}
       <Modal
@@ -771,24 +780,45 @@ export default function CreateSessionScreen() {
         </View>
       </Modal>
 
-      {/* Date Picker */}
-      {showDatePicker && (
+      {/* Start Date Picker */}
+      {showStartDatePicker && (
         <DateTimePicker
-          value={selectedDate}
+          value={selectedStartDate}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={onDateChange}
+          onChange={onStartDateChange}
           minimumDate={new Date()}
         />
       )}
 
-      {/* Time Picker */}
-      {showTimePicker && (
+      {/* End Date Picker */}
+      {showEndDatePicker && (
         <DateTimePicker
-          value={selectedTime}
+          value={selectedEndDate}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={onEndDateChange}
+          minimumDate={selectedStartDate} // End date can't be before start date
+        />
+      )}
+
+      {/* Start Time Picker */}
+      {showStartTimePicker && (
+        <DateTimePicker
+          value={selectedStartTime}
           mode="time"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={onTimeChange}
+          onChange={onStartTimeChange}
+        />
+      )}
+
+      {/* End Time Picker */}
+      {showEndTimePicker && (
+        <DateTimePicker
+          value={selectedEndTime}
+          mode="time"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={onEndTimeChange}
         />
       )}
     </KeyboardAvoidingView>
@@ -1041,5 +1071,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginLeft: 4,
     fontWeight: '500',
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  switchLabelContainer: {
+    flex: 1,
+    marginRight: 16,
+  },
+  switchDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 4,
+    lineHeight: 20,
   },
 });

@@ -142,16 +142,12 @@ export const sessionsAPI = {
   },
 
   joinSession: async (id: string): Promise<Session> => {
-    console.log('Attempting to join session:', id);
     const response = await api.post(`/sessions/${id}/join`);
-    console.log('Join session response:', response.data);
     return response.data;
   },
 
   leaveSession: async (id: string): Promise<Session> => {
-    console.log('Attempting to leave session:', id);
     const response = await api.post(`/sessions/${id}/leave`);
-    console.log('Leave session response:', response.data);
     return response.data;
   },
 };

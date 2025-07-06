@@ -71,53 +71,83 @@ export default function SessionsScreen() {
     }
   };
 
-  const renderSessionItem = ({ item }: { item: Session }) => (
-    <TouchableOpacity
-      style={styles.sessionCard}
-      onPress={() => navigation.navigate('SessionDetail', { sessionId: item._id })}
-    >
-      <View style={styles.sessionHeader}>
-        <Text style={styles.sessionSport}>{item.sport}</Text>
-        <View style={[styles.skillBadge, { backgroundColor: getSkillLevelColor(item.skillLevel) }]}>
-          <Text style={styles.skillBadgeText}>{item.skillLevel}</Text>
+  const renderSessionItem = ({ item }: { item: Session }) => {
+    // Calculate dynamic player count (participants + host if countHostIn)
+    const participantCount = item.participants ? item.participants.length : 0;
+    const hostCount = item.countHostIn ? 1 : 0;
+    const totalCurrentPlayers = participantCount + hostCount;
+    const spotsLeft = item.maxPlayers - totalCurrentPlayers;
+    const isFull = totalCurrentPlayers >= item.maxPlayers;
+    const isAlmostFull = spotsLeft <= 2 && spotsLeft > 0;
+
+    return (
+      <TouchableOpacity
+        style={styles.sessionCard}
+        onPress={() => navigation.navigate('SessionDetail', { sessionId: item._id })}
+      >
+        <View style={styles.sessionHeader}>
+          <Text style={styles.sessionSport}>{item.sport}</Text>
+          <View style={[styles.skillBadge, { backgroundColor: getSkillLevelColor(item.skillLevel) }]}>
+            <Text style={styles.skillBadgeText}>{item.skillLevel}</Text>
+          </View>
         </View>
-      </View>
-      
-      <Text style={styles.sessionVenue}>{item.venue}</Text>
-      <Text style={styles.sessionHost}>Hosted by {item.hostName}</Text>
-      
-      <View style={styles.sessionDetails}>
-        <View style={styles.detailItem}>
-          <Icon name="schedule" size={16} color="#6b7280" />
-          <Text style={styles.detailText}>
-            {formatDate(item.date)} • {formatTime(item.time)}
-          </Text>
+
+        <Text style={styles.sessionVenue}>{item.venue}</Text>
+        <Text style={styles.sessionHost}>Hosted by {item.hostName}</Text>
+
+        <View style={styles.sessionDetails}>
+          <View style={styles.detailItem}>
+            <Icon name="schedule" size={16} color="#6b7280" />
+            <Text style={styles.detailText}>
+              {/* Handle both new and legacy date formats */}
+              {item.startDate ?
+                `${formatDate(item.startDate)} • ${formatTime(item.startTime)}${item.endDate !== item.startDate ? ` - ${formatDate(item.endDate)}` : ''} • ${formatTime(item.endTime)}` :
+                `${formatDate(item.date!)} • ${formatTime(item.time!)}`
+              }
+            </Text>
+          </View>
+
+          <View style={styles.detailItem}>
+            <Icon
+              name="group"
+              size={16}
+              color={isFull ? "#ef4444" : isAlmostFull ? "#f59e0b" : "#10b981"}
+            />
+            <Text style={[
+              styles.detailText,
+              { color: isFull ? "#ef4444" : isAlmostFull ? "#f59e0b" : "#374151" }
+            ]}>
+              {totalCurrentPlayers}/{item.maxPlayers} players
+            </Text>
+            {!isFull && (
+              <Text style={styles.spotsLeftText}>
+                • {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
+              </Text>
+            )}
+          </View>
         </View>
-        
-        <View style={styles.detailItem}>
-          <Icon name="group" size={16} color="#6b7280" />
-          <Text style={styles.detailText}>
-            {item.currentPlayers}/{item.maxPlayers} players
-          </Text>
-        </View>
-      </View>
-      
-      <View style={styles.sessionFooter}>
-        <Text style={styles.sessionFee}>S${item.fee}</Text>
-        <View style={[
-          styles.availabilityBadge,
-          item.currentPlayers >= item.maxPlayers ? styles.fullBadge : styles.availableBadge
-        ]}>
-          <Text style={[
-            styles.availabilityText,
-            item.currentPlayers >= item.maxPlayers ? styles.fullText : styles.availableText
+
+        <View style={styles.sessionFooter}>
+          <View style={styles.feeContainer}>
+            <Text style={styles.sessionFee}>
+              {item.fee > 0 ? `S$${item.fee}` : 'Free'}
+            </Text>
+          </View>
+          <View style={[
+            styles.availabilityBadge,
+            isFull ? styles.fullBadge : isAlmostFull ? styles.almostFullBadge : styles.availableBadge
           ]}>
-            {item.currentPlayers >= item.maxPlayers ? 'Full' : 'Available'}
-          </Text>
+            <Text style={[
+              styles.availabilityText,
+              isFull ? styles.fullText : isAlmostFull ? styles.almostFullText : styles.availableText
+            ]}>
+              {isFull ? 'Full' : isAlmostFull ? 'Almost Full' : 'Available'}
+            </Text>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -335,6 +365,9 @@ const styles = StyleSheet.create({
   availableBadge: {
     backgroundColor: '#dcfce7',
   },
+  almostFullBadge: {
+    backgroundColor: '#fef3c7',
+  },
   fullBadge: {
     backgroundColor: '#fee2e2',
   },
@@ -342,8 +375,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  spotsLeftText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginLeft: 4,
+    fontStyle: 'italic',
+  },
+  feeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   availableText: {
     color: '#166534',
+  },
+  almostFullText: {
+    color: '#d97706',
   },
   fullText: {
     color: '#dc2626',
