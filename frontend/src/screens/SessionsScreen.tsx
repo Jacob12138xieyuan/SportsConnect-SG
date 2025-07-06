@@ -144,9 +144,10 @@ export default function SessionsScreen() {
                          item.participants.some(participant => {
                            // Handle both string IDs and User objects
                            if (typeof participant === 'string') {
-                             return participant === user._id;
+                             return participant === user._id || participant === user.id;
                            } else {
-                             return participant._id === user._id;
+                             return participant._id === user._id || participant._id === user.id ||
+                                    participant.id === user._id || participant.id === user.id;
                            }
                          });
 
