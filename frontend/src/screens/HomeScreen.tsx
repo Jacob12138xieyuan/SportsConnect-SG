@@ -13,7 +13,7 @@ import { CompositeNavigationProp } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { MainTabParamList, SessionStackParamList, Session } from '../types';
+import { MainTabParamList, SessionStackParamList } from '../types';
 import { sessionsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -177,7 +177,10 @@ export default function HomeScreen() {
             <TouchableOpacity
               key={session._id}
               style={styles.sessionCard}
-              onPress={() => navigation.navigate('SessionDetail', { sessionId: session._id })}
+              onPress={() => navigation.navigate('Sessions', {
+                screen: 'SessionDetail',
+                params: { sessionId: session._id }
+              })}
             >
               <View style={styles.sessionHeader}>
                 <Text style={styles.sessionSport}>{session.sport}</Text>

@@ -309,7 +309,10 @@ export default function CreateSessionScreen() {
       console.log('Session created successfully:', newSession);
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       Alert.alert('Success', 'Session created successfully!', [
-        { text: 'OK', onPress: () => navigation.navigate('Sessions') }
+        { text: 'OK', onPress: () => navigation.navigate('Sessions', {
+          screen: 'SessionDetail',
+          params: { sessionId: newSession._id }
+        })}
       ]);
     },
     onError: (error: any) => {
@@ -334,10 +337,7 @@ export default function CreateSessionScreen() {
   });
 
   const handleSubmit = () => {
-    console.log('Submit button pressed');
     console.log('Form data:', formData);
-    console.log('User:', user);
-
     if (!user) {
       Alert.alert('Error', 'You must be logged in to create a session');
       return;
@@ -584,7 +584,6 @@ export default function CreateSessionScreen() {
                 <Text style={styles.label}>Count host in player limit</Text>
                 <Text style={styles.switchDescription}>
                   When enabled, you (the host) count towards the maximum players.
-                  When disabled, you can have additional players beyond the limit.
                 </Text>
               </View>
               <Switch

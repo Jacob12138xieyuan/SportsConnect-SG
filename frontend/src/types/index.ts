@@ -30,7 +30,6 @@ export interface Session {
   fee: number;
   notes?: string;
   participants?: (User | string)[];
-  countHostIn: boolean;
   createdAt: string;
   updatedAt: string;
   // Legacy fields for backward compatibility
@@ -87,7 +86,15 @@ export type RootStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined;
-  Sessions: undefined;
+  Sessions:
+    | undefined
+    | {
+        screen: 'SessionList';
+      }
+    | {
+        screen: 'SessionDetail';
+        params: { sessionId: string };
+      };
   CreateSession: undefined;
   Messages: undefined;
   Profile: undefined;

@@ -14,14 +14,12 @@ const sessionSchema = new mongoose.Schema({
   fee: { type: Number, default: 0 },
   notes: { type: String },
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  countHostIn: { type: Boolean, default: true },
 }, { timestamps: true });
 
 // Virtual field to calculate current players dynamically
 sessionSchema.virtual('currentPlayers').get(function() {
-  // Count participants + host (if countHostIn is true)
-  const hostCount = this.countHostIn ? 1 : 0;
-  return (this.participants?.length || 0) + hostCount;
+  // Count only participants (host is included in participants array if they should be counted)
+  return this.participants?.length || 0;
 });
 
 // Ensure virtual fields are serialized

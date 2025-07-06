@@ -9,17 +9,19 @@ import {
   Modal,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { SessionStackParamList } from '../types';
 import { sessionsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { User } from '../types';
 
 type SessionDetailRouteProp = RouteProp<SessionStackParamList, 'SessionDetail'>;
+type SessionDetailNavigationProp = StackNavigationProp<SessionStackParamList, 'SessionDetail'>;
 
 export default function SessionDetailScreen() {
   const route = useRoute<SessionDetailRouteProp>();
+  const navigation = useNavigation<SessionDetailNavigationProp>();
   const { sessionId } = route.params;
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -27,6 +29,7 @@ export default function SessionDetailScreen() {
   // State for confirmation modals
   const [showJoinConfirmation, setShowJoinConfirmation] = useState(false);
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
+  const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
 
   const {
     data: session,
@@ -56,6 +59,18 @@ export default function SessionDetailScreen() {
     },
     onError: (error: any) => {
       console.error('Failed to leave session:', error.response?.data?.error || error.message);
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => sessionsAPI.deleteSession(sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      // Navigate back to sessions list after successful cancellation
+      navigation.navigate('SessionList');
+    },
+    onError: (error: any) => {
+      console.error('Failed to cancel session:', error.response?.data?.error || error.message);
     },
   });
 
@@ -150,6 +165,19 @@ export default function SessionDetailScreen() {
 
   const cancelLeave = () => {
     setShowLeaveConfirmation(false);
+  };
+
+  const handleCancel = () => {
+    setShowCancelConfirmation(true);
+  };
+
+  const confirmCancel = () => {
+    setShowCancelConfirmation(false);
+    cancelMutation.mutate();
+  };
+
+  const cancelCancelSession = () => {
+    setShowCancelConfirmation(false);
   };
 
   return (
@@ -295,12 +323,12 @@ export default function SessionDetailScreen() {
         <View style={styles.participantsContainer}>
           <View style={styles.participantsHeader}>
             <Text style={styles.participantsTitle}>
-              Participants ({hostCount}/{session.maxPlayers})
+              Participants ({currentPlayers}/{session.maxPlayers})
             </Text>
             <View style={styles.participantsSummary}>
               <Icon name="group" size={16} color="#6b7280" />
               <Text style={styles.participantsSummaryText}>
-                {session.maxPlayers - hostCount} spots available
+                {session.maxPlayers - currentPlayers} spots available
               </Text>
             </View>
           </View>
@@ -330,10 +358,21 @@ export default function SessionDetailScreen() {
 
       <View style={styles.actionContainer}>
         {isUserHost && (
-          <View style={styles.hostBadge}>
-            <Icon name="star" size={20} color="#f59e0b" />
-            <Text style={styles.hostBadgeText}>You are hosting this session</Text>
-          </View>
+          <>
+            <View style={styles.hostBadge}>
+              <Icon name="star" size={20} color="#f59e0b" />
+              <Text style={styles.hostBadgeText}>You are hosting this session</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancel}
+              disabled={cancelMutation.isPending}
+            >
+              <Text style={styles.cancelButtonText}>
+                {cancelMutation.isPending ? 'Cancelling...' : 'Cancel Session'}
+              </Text>
+            </TouchableOpacity>
+          </>
         )}
 
         {canJoin && (
@@ -412,6 +451,31 @@ export default function SessionDetailScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalLeaveButton} onPress={confirmLeave}>
                 <Text style={styles.modalLeaveText}>Leave</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancel Session Confirmation Modal */}
+      <Modal
+        visible={showCancelConfirmation}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={cancelCancelSession}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Cancel Session</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to cancel this session? This action cannot be undone and all participants will be notified.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancelButton} onPress={cancelCancelSession}>
+                <Text style={styles.modalCancelText}>Keep Session</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalLeaveButton} onPress={confirmCancel}>
+                <Text style={styles.modalLeaveText}>Cancel Session</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -773,6 +837,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalLeaveText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  cancelButton: {
+    backgroundColor: '#dc2626',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',

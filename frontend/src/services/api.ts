@@ -150,6 +150,11 @@ export const sessionsAPI = {
     const response = await api.post(`/sessions/${id}/leave`);
     return response.data;
   },
+
+  deleteSession: async (id: string): Promise<{ message: string }> => {
+    const response = await api.delete(`/sessions/${id}`);
+    return response.data;
+  },
 };
 
 // Venues API

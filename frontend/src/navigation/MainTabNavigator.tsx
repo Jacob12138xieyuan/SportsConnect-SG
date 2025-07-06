@@ -80,6 +80,12 @@ export default function MainTabNavigator() {
         name="Sessions"
         component={SessionStackNavigator}
         options={{ headerShown: false }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            // Reset the Sessions stack to SessionList when tab is pressed
+            navigation.navigate('Sessions', { screen: 'SessionList' });
+          },
+        })}
       />
       <Tab.Screen
         name="CreateSession"

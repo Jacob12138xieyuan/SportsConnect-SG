@@ -38,13 +38,22 @@ router.post('/', requireAuth, async (req: Request & { userId?: string }, res: Re
   });
   
   try {
+    const { countHostIn, ...sessionFields } = req.body;
     const sessionData = {
-      ...req.body,
+      ...sessionFields,
       hostId: req.userId,
+      participants: [], // Initialize empty participants array
     };
+
     const session = new Session(sessionData);
+
+    // If host should be counted, add them to participants
+    if (countHostIn) {
+      session.participants.push(new mongoose.Types.ObjectId(req.userId));
+    }
+
     await session.save();
-    console.log('Session created successfully:', session._id);
+    console.log('Session created successfully:', session._id, 'Host included in participants:', countHostIn);
     res.status(201).json(session);
   } catch (err) {
     console.error('Session creation error:', err);
@@ -75,20 +84,23 @@ router.post('/:id/join', requireAuth, async (req: Request & { userId?: string },
     }
 
     const userIdStr = req.userId.toString();
-    // Calculate current players dynamically (participants + host if countHostIn)
-    const hostCount = session.countHostIn ? 1 : 0;
-    const currentPlayers = (session.participants?.length || 0) + hostCount;
+    // Calculate current players using only participants count
+    const currentPlayers = session.participants?.length || 0;
 
     console.log('Session found:', {
       sessionId: session._id,
       currentParticipants: session.participants,
       participantCount: session.participants?.length || 0,
-      countHostIn: session.countHostIn,
-      hostCount: hostCount,
       currentPlayers: currentPlayers,
       maxPlayers: session.maxPlayers,
       userTryingToJoin: userIdStr
     });
+
+    // Check if user is the host
+    if (session.hostId.toString() === userIdStr) {
+      console.log('Host cannot join their own session');
+      return res.status(400).json({ error: 'Host cannot join their own session' });
+    }
 
     // Check if user already joined
     if (session.participants && session.participants.map((id: any) => id.toString()).includes(userIdStr)) {
@@ -116,8 +128,7 @@ router.post('/:id/join', requireAuth, async (req: Request & { userId?: string },
 
     console.log('Saving session with new participant:', {
       newParticipants: session.participants,
-      countHostIn: session.countHostIn,
-      newCurrentPlayers: (session.participants?.length || 0) + (session.countHostIn ? 1 : 0)
+      newCurrentPlayers: session.participants?.length || 0
     });
 
     try {
@@ -137,8 +148,7 @@ router.post('/:id/join', requireAuth, async (req: Request & { userId?: string },
       console.log('Join successful, returning populated session:', {
         sessionId: populatedSession?._id,
         participantCount: populatedSession?.participants?.length,
-        countHostIn: populatedSession?.countHostIn,
-        currentPlayers: (populatedSession?.participants?.length || 0) + (populatedSession?.countHostIn ? 1 : 0)
+        currentPlayers: populatedSession?.participants?.length || 0
       });
 
       res.json(populatedSession);
@@ -160,9 +170,17 @@ router.post('/:id/leave', requireAuth, async (req: Request & { userId?: string }
     const session = await Session.findById(req.params.id);
     if (!session) return res.status(404).json({ error: 'Session not found' });
     const userIdStr = req.userId?.toString();
+
     if (!session.participants || !session.participants.map((id: any) => id.toString()).includes(userIdStr)) {
       return res.status(400).json({ error: 'Not a participant' });
     }
+
+    // Check if user is the host and if they're the only participant
+    const isHost = session.hostId.toString() === userIdStr;
+    if (isHost && session.participants.length === 1) {
+      return res.status(400).json({ error: 'Host cannot leave as the only participant. Please cancel the session instead.' });
+    }
+
     session.participants = session.participants.filter((id: any) => id.toString() !== userIdStr);
     await session.save();
     const populatedSession = await Session.findById(session._id)
@@ -174,4 +192,30 @@ router.post('/:id/leave', requireAuth, async (req: Request & { userId?: string }
   }
 });
 
-export default router; 
+// DELETE /sessions/:id - delete a session (host only)
+router.delete('/:id', requireAuth, async (req: Request & { userId?: string }, res: Response) => {
+  try {
+    const session = await Session.findById(req.params.id);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    const userIdStr = req.userId?.toString();
+
+    // Check if user is the host
+    if (session.hostId.toString() !== userIdStr) {
+      return res.status(403).json({ error: 'Only the host can cancel this session' });
+    }
+
+    // Delete the session
+    await Session.findByIdAndDelete(req.params.id);
+    console.log('Session deleted successfully:', req.params.id, 'by host:', userIdStr);
+
+    res.json({ message: 'Session cancelled successfully' });
+  } catch (err) {
+    console.error('Delete session error:', err);
+    res.status(500).json({ error: 'Failed to cancel session' });
+  }
+});
+
+export default router;
