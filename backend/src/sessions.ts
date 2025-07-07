@@ -14,43 +14,9 @@ router.get('/hosted', requireAuth, async (req: Request & { userId?: string }, re
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const now = new Date();
-    const twoHoursAgo = new Date(now.getTime() - (2 * 60 * 60 * 1000)); // 2 hours ago
-
-    // Create a cutoff datetime string for comparison
-    const cutoffDate = twoHoursAgo.toISOString().split('T')[0]; // YYYY-MM-DD
-    const cutoffTime = twoHoursAgo.toTimeString().slice(0, 5); // HH:MM
-
-    // Query to fetch only user's hosted sessions (not expired more than 2 hours)
+    // Query to fetch all user's hosted sessions (no expiration filtering)
     const hostedSessions = await Session.find({
-      hostId: userId,
-      $or: [
-        // Future sessions (date is after today)
-        { startDate: { $gt: now.toISOString().split('T')[0] } },
-
-        // Sessions today that haven't started yet
-        {
-          startDate: now.toISOString().split('T')[0],
-          startTime: { $gt: now.toTimeString().slice(0, 5) }
-        },
-
-        // Sessions that started within the last 2 hours (recently expired)
-        {
-          $or: [
-            {
-              startDate: cutoffDate,
-              startTime: { $gte: cutoffTime }
-            },
-            {
-              startDate: { $gt: cutoffDate }
-            }
-          ]
-        },
-
-        // Include sessions without proper date/time (safety fallback)
-        { startDate: { $exists: false } },
-        { startTime: { $exists: false } }
-      ]
+      hostId: userId
     })
     .populate({ path: 'participants', select: 'name avatar email' })
     .sort({
@@ -62,6 +28,74 @@ router.get('/hosted', requireAuth, async (req: Request & { userId?: string }, re
   } catch (err) {
     console.error('Error fetching hosted sessions:', err);
     res.status(500).json({ error: 'Failed to fetch hosted sessions' });
+  }
+});
+
+// GET /sessions/user-data - get user's hosted sessions and statistics in one call (must be before /:id route)
+router.get('/user-data', requireAuth, async (req: Request & { userId?: string }, res: Response) => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Fetch hosted sessions (most likely to be accessed)
+    const hostedSessions = await Session.find({
+      hostId: userId
+    })
+    .populate({ path: 'participants', select: 'name avatar email' })
+    .sort({
+      startDate: -1,  // Descending order (newest first)
+      startTime: -1   // Descending order (latest time first)
+    });
+
+    // Calculate statistics efficiently using aggregation
+    const stats = await Session.aggregate([
+      {
+        $facet: {
+          // Count total sessions where user is host
+          hostedCount: [
+            { $match: { hostId: new mongoose.Types.ObjectId(userId) } },
+            { $count: "count" }
+          ],
+          // Count total sessions where user is participant (including as host)
+          joinedCount: [
+            { $match: { participants: new mongoose.Types.ObjectId(userId) } },
+            { $count: "count" }
+          ],
+          // Count total unique sessions (hosted or joined)
+          totalCount: [
+            {
+              $match: {
+                $or: [
+                  { hostId: new mongoose.Types.ObjectId(userId) },
+                  { participants: new mongoose.Types.ObjectId(userId) }
+                ]
+              }
+            },
+            { $count: "count" }
+          ]
+        }
+      }
+    ]);
+
+    // Extract counts from aggregation result
+    const hostedCount = stats[0].hostedCount[0]?.count || 0;
+    const joinedCount = stats[0].joinedCount[0]?.count || 0;
+    const totalCount = stats[0].totalCount[0]?.count || 0;
+
+    res.json({
+      hostedSessions,
+      stats: {
+        hosted: hostedCount,
+        joined: joinedCount,
+        total: totalCount
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching user session data:', err);
+    res.status(500).json({ error: 'Failed to fetch user session data' });
   }
 });
 

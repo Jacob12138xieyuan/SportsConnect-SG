@@ -9,7 +9,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,13 +21,15 @@ interface ProfileScreenProps {
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user, logout, updateUser } = useAuth();
-  const queryClient = useQueryClient();
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  const { data: sessions = [] } = useQuery({
-    queryKey: ['sessions'],
-    queryFn: sessionsAPI.getAllSessions,
+  // Fetch user's session data and statistics in one optimized call
+  const { data: userSessionData = { hostedSessions: [], stats: { hosted: 0, joined: 0, total: 0 } } } = useQuery({
+    queryKey: ['userSessionData'],
+    queryFn: sessionsAPI.getUserSessionData,
   });
+
+  const { stats: userStats } = userSessionData;
 
   // Profile picture upload mutation
   const uploadProfilePictureMutation = useMutation({
@@ -70,27 +72,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     },
   });
 
-  // Calculate user statistics
-  const hostedSessions = sessions.filter(session => {
-    if (!session.hostId || !user?.id) return false;
-    if (typeof session.hostId === 'string') {
-      return session.hostId === user.id;
-    }
-    return session.hostId._id === user.id || session.hostId.id === user.id;
-  });
 
-  const joinedSessions = sessions.filter(session => {
-    if (!user?.id) return false;
-    return session.participants?.some(participant => {
-      if (!participant) return false;
-      if (typeof participant === 'string') {
-        return participant === user.id;
-      }
-      return participant._id === user.id || participant.id === user.id;
-    });
-  });
-
-  const totalSessions = hostedSessions.length + joinedSessions.length;
 
   const handleLogout = async () => {
     await logout(); // This clears user/token and triggers navigation to login via root navigator
@@ -231,20 +213,20 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           <StatCard
             icon="sports-tennis"
             title="Total Sessions"
-            value={totalSessions}
+            value={userStats.total}
             color="#2563eb"
           />
           <StatCard
             icon="star"
             title="Hosted"
-            value={hostedSessions.length}
+            value={userStats.hosted}
             color="#f59e0b"
             onPress={() => navigation.navigate('HostedSessions')}
           />
           <StatCard
             icon="group"
             title="Joined"
-            value={joinedSessions.length}
+            value={userStats.joined}
             color="#10b981"
           />
         </View>

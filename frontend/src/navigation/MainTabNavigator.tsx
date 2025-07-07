@@ -59,6 +59,14 @@ function ProfileStackNavigator() {
           headerShown: false, // HostedSessionsScreen has its own header
         }}
       />
+      <ProfileStack.Screen
+        name="SessionDetail"
+        component={SessionDetailScreen}
+        options={{
+          title: 'Session Details',
+          // Back arrow will be shown automatically for nested screens
+        }}
+      />
     </ProfileStack.Navigator>
   );
 }

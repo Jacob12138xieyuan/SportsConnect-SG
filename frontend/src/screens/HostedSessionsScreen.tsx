@@ -21,10 +21,13 @@ export default function HostedSessionsScreen({ navigation }: HostedSessionsScree
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: hostedSessions = [], isLoading, error } = useQuery({
-    queryKey: ['hostedSessions'],
-    queryFn: sessionsAPI.getHostedSessions,
+  // Get hosted sessions from cached user session data (already fetched in ProfileScreen)
+  const { data: userSessionData, isLoading, error } = useQuery({
+    queryKey: ['userSessionData'],
+    queryFn: sessionsAPI.getUserSessionData,
   });
+
+  const hostedSessions = userSessionData?.hostedSessions || [];
 
   // Filter hosted sessions based on search query
   const filteredSessions = hostedSessions.filter(session => {
@@ -36,8 +39,8 @@ export default function HostedSessionsScreen({ navigation }: HostedSessionsScree
     return matchesSearch;
   });
 
-  // Helper function to check if session is recently expired (within 2 hours)
-  const isSessionRecentlyExpired = (session: Session): boolean => {
+  // Helper function to check if session is expired
+  const isSessionExpired = (session: Session): boolean => {
     const now = new Date();
     const sessionStartDate = session.startDate || session.date;
     const sessionStartTime = session.startTime || session.time;
@@ -48,15 +51,9 @@ export default function HostedSessionsScreen({ navigation }: HostedSessionsScree
 
     try {
       const sessionDateTime = new Date(`${sessionStartDate}T${sessionStartTime}`);
-      
-      if (sessionDateTime > now) {
-        return false; // Session hasn't started yet
-      }
 
-      const timeDifference = now.getTime() - sessionDateTime.getTime();
-      const twoHoursInMs = 2 * 60 * 60 * 1000;
-      
-      return timeDifference <= twoHoursInMs;
+      // Session is expired if it has already started
+      return sessionDateTime <= now;
     } catch (error) {
       return false;
     }
@@ -104,7 +101,7 @@ export default function HostedSessionsScreen({ navigation }: HostedSessionsScree
     const spotsLeft = item.maxPlayers - participantCount;
     const isFull = participantCount >= item.maxPlayers;
     const isAlmostFull = spotsLeft <= 2 && spotsLeft > 0;
-    const isExpired = isSessionRecentlyExpired(item);
+    const isExpired = isSessionExpired(item);
 
     return (
       <TouchableOpacity
@@ -223,7 +220,7 @@ export default function HostedSessionsScreen({ navigation }: HostedSessionsScree
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshing={isLoading}
-        onRefresh={() => queryClient.invalidateQueries({ queryKey: ['hostedSessions'] })}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: ['userSessionData'] })}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Icon name="event" size={64} color="#d1d5db" />

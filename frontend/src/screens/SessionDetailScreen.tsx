@@ -67,8 +67,9 @@ export default function SessionDetailScreen() {
     mutationFn: () => sessionsAPI.deleteSession(sessionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      // Navigate back to sessions list after successful cancellation
-      navigation.navigate('SessionList');
+      queryClient.invalidateQueries({ queryKey: ['userSessionData'] });
+      // Navigate back to previous screen after successful cancellation
+      navigation.goBack();
     },
     onError: (error: any) => {
       console.error('Failed to cancel session:', error.response?.data?.error || error.message);
@@ -156,8 +157,7 @@ export default function SessionDetailScreen() {
   const canJoin = !isUserParticipant && !isUserHost && !isFull && !isExpired;
   const canLeave = isUserParticipant && !isUserHost && !isExpired;
 
-  // Check if user has joined (for status display)
-  const hasUserJoined = isUserParticipant;
+
 
 
 

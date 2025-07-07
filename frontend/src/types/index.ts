@@ -121,4 +121,5 @@ export type SessionStackParamList = {
 export type ProfileStackParamList = {
   ProfileMain: undefined;
   HostedSessions: undefined;
+  SessionDetail: { sessionId: string };
 };
