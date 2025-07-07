@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { MainTabParamList, SessionStackParamList } from '../types';
+import { MainTabParamList, SessionStackParamList, ProfileStackParamList } from '../types';
 
 // Import screens
 import HomeScreen from '../screens/HomeScreen';
@@ -12,9 +12,11 @@ import SessionDetailScreen from '../screens/SessionDetailScreen';
 import MessagesScreen from '../screens/MessagesScreen';
 import CreateSessionScreen from '../screens/CreateSessionScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import HostedSessionsScreen from '../screens/HostedSessionsScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const SessionStack = createStackNavigator<SessionStackParamList>();
+const ProfileStack = createStackNavigator<ProfileStackParamList>();
 
 function SessionStackNavigator() {
   return (
@@ -36,6 +38,28 @@ function SessionStackNavigator() {
         }}
       />
     </SessionStack.Navigator>
+  );
+}
+
+function ProfileStackNavigator() {
+  return (
+    <ProfileStack.Navigator>
+      <ProfileStack.Screen
+        name="ProfileMain"
+        component={ProfileScreen}
+        options={{
+          title: 'Profile',
+          headerLeft: () => null, // Remove back arrow for root screen
+        }}
+      />
+      <ProfileStack.Screen
+        name="HostedSessions"
+        component={HostedSessionsScreen}
+        options={{
+          headerShown: false, // HostedSessionsScreen has its own header
+        }}
+      />
+    </ProfileStack.Navigator>
   );
 }
 
@@ -128,8 +152,8 @@ export default function MainTabNavigator() {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
-        options={{ title: 'Profile' }}
+        component={ProfileStackNavigator}
+        options={{ headerShown: false }}
       />
     </Tab.Navigator>
   );

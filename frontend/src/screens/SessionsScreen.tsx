@@ -41,7 +41,7 @@ export default function SessionsScreen() {
     queryFn: sessionsAPI.getAllSessions,
   });
 
-  // Filter sessions based on search and filters
+  // Filter sessions based on search and filters (backend already excludes old expired sessions)
   const filteredSessions = sessions.filter(session => {
     const matchesSearch = session.venue.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          session.sport.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -55,8 +55,7 @@ export default function SessionsScreen() {
 
     return matchesSearch && matchesSport && matchesSkill;
   }).sort((a, b) => {
-    // Sort by proximity to current date/time (closest sessions first)
-    const now = new Date();
+    // Sort by start date and start time in ascending order (earliest first)
 
     // Helper function to get session date/time as timestamp
     const getSessionTimestamp = (session: Session): number => {
@@ -72,14 +71,9 @@ export default function SessionsScreen() {
 
     const timestampA = getSessionTimestamp(a);
     const timestampB = getSessionTimestamp(b);
-    const currentTimestamp = now.getTime();
 
-    // Calculate absolute time difference from current time
-    const diffA = Math.abs(timestampA - currentTimestamp);
-    const diffB = Math.abs(timestampB - currentTimestamp);
-
-    // Sort by smallest time difference (closest to current time)
-    return diffA - diffB;
+    // Sort in ascending order (earliest sessions first)
+    return timestampA - timestampB;
   });
 
   // Get unique sports for filter
@@ -224,7 +218,7 @@ export default function SessionsScreen() {
               isAlmostFull ? styles.almostFullText :
               styles.availableText
             ]}>
-              {isExpired ? 'Expired' :
+              {isExpired ? 'Recently Expired' :
                hasUserJoined ? 'Joined' :
                isFull ? 'Full' :
                isAlmostFull ? 'Almost Full' :

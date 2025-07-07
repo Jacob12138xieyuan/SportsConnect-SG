@@ -15,7 +15,11 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAuth } from '../contexts/AuthContext';
 import { sessionsAPI } from '../services/api';
 
-export default function ProfileScreen() {
+interface ProfileScreenProps {
+  navigation: any;
+}
+
+export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user, logout, updateUser } = useAuth();
   const queryClient = useQueryClient();
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -153,17 +157,25 @@ export default function ProfileScreen() {
     }
   };
 
-  const StatCard = ({ icon, title, value, color = '#2563eb' }: {
+  const StatCard = ({ icon, title, value, color = '#2563eb', onPress }: {
     icon: string;
     title: string;
     value: string | number;
     color?: string;
+    onPress?: () => void;
   }) => (
-    <View style={styles.statCard}>
+    <TouchableOpacity
+      style={[styles.statCard, onPress && styles.clickableStatCard]}
+      onPress={onPress}
+      disabled={!onPress}
+    >
       <Icon name={icon} size={32} color={color} />
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statTitle}>{title}</Text>
-    </View>
+      {onPress && (
+        <Icon name="chevron-right" size={16} color="#9ca3af" style={styles.statCardArrow} />
+      )}
+    </TouchableOpacity>
   );
 
   const MenuButton = ({ icon, title, onPress, color = '#374151' }: {
@@ -227,6 +239,7 @@ export default function ProfileScreen() {
             title="Hosted"
             value={hostedSessions.length}
             color="#f59e0b"
+            onPress={() => navigation.navigate('HostedSessions')}
           />
           <StatCard
             icon="group"
@@ -379,6 +392,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+    position: 'relative',
+  },
+  clickableStatCard: {
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  statCardArrow: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
   },
   statValue: {
     fontSize: 24,

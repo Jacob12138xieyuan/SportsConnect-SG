@@ -103,10 +103,22 @@ export type MainTabParamList = {
       };
   CreateSession: undefined;
   Messages: undefined;
-  Profile: undefined;
+  Profile:
+    | undefined
+    | {
+        screen: 'ProfileMain';
+      }
+    | {
+        screen: 'HostedSessions';
+      };
 };
 
 export type SessionStackParamList = {
   SessionList: undefined;
   SessionDetail: { sessionId: string };
+};
+
+export type ProfileStackParamList = {
+  ProfileMain: undefined;
+  HostedSessions: undefined;
 };

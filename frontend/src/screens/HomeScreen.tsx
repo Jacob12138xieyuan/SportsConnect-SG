@@ -295,49 +295,6 @@ export default function HomeScreen() {
           </View>
         </View>
       </View>
-
-      {/* My Past Sessions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>My Past Sessions</Text>
-        {pastSessions.length > 0 ? (
-          pastSessions.map((session) => (
-            <TouchableOpacity
-              key={session._id}
-              style={styles.sessionCard}
-              onPress={() => navigation.navigate('Sessions', {
-                screen: 'SessionDetail',
-                params: { sessionId: session._id }
-              })}
-            >
-              <View style={styles.sessionHeader}>
-                <Text style={styles.sessionSport}>{session.sport}</Text>
-                <Text style={styles.pastSessionBadge}>Completed</Text>
-              </View>
-              <Text style={styles.sessionVenue}>
-                {session.venue}
-                {session.courtNumber && ` • Court ${session.courtNumber}`}
-              </Text>
-              <View style={styles.sessionDetails}>
-                <Text style={styles.sessionDate}>
-                  {formatDate(session.startDate || session.date || '')} • {formatTime(session.startTime || session.time || '')}
-                </Text>
-                <Text style={styles.sessionPlayers}>
-                  {(session.participants?.length || 0)}/{session.maxPlayers} players
-                </Text>
-                <Text style={styles.sessionFee}>S${session.fee}</Text>
-              </View>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-            <Icon name="history" size={48} color="#d1d5db" />
-            <Text style={styles.emptyStateText}>No past sessions</Text>
-            <Text style={styles.emptyStateSubtext}>
-              Your completed sessions will appear here
-            </Text>
-          </View>
-        )}
-      </View>
     </ScrollView>
   );
 }

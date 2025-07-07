@@ -5,12 +5,117 @@ import mongoose from 'mongoose';
 
 const router = Router();
 
-// GET /sessions - list all sessions
+// GET /sessions/hosted - get user's hosted sessions (must be before /:id route)
+router.get('/hosted', requireAuth, async (req: Request & { userId?: string }, res: Response) => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const now = new Date();
+    const twoHoursAgo = new Date(now.getTime() - (2 * 60 * 60 * 1000)); // 2 hours ago
+
+    // Create a cutoff datetime string for comparison
+    const cutoffDate = twoHoursAgo.toISOString().split('T')[0]; // YYYY-MM-DD
+    const cutoffTime = twoHoursAgo.toTimeString().slice(0, 5); // HH:MM
+
+    // Query to fetch only user's hosted sessions (not expired more than 2 hours)
+    const hostedSessions = await Session.find({
+      hostId: userId,
+      $or: [
+        // Future sessions (date is after today)
+        { startDate: { $gt: now.toISOString().split('T')[0] } },
+
+        // Sessions today that haven't started yet
+        {
+          startDate: now.toISOString().split('T')[0],
+          startTime: { $gt: now.toTimeString().slice(0, 5) }
+        },
+
+        // Sessions that started within the last 2 hours (recently expired)
+        {
+          $or: [
+            {
+              startDate: cutoffDate,
+              startTime: { $gte: cutoffTime }
+            },
+            {
+              startDate: { $gt: cutoffDate }
+            }
+          ]
+        },
+
+        // Include sessions without proper date/time (safety fallback)
+        { startDate: { $exists: false } },
+        { startTime: { $exists: false } }
+      ]
+    })
+    .populate({ path: 'participants', select: 'name avatar email' })
+    .sort({
+      startDate: -1,  // Descending order (newest first)
+      startTime: -1   // Descending order (latest time first)
+    });
+
+    res.json(hostedSessions);
+  } catch (err) {
+    console.error('Error fetching hosted sessions:', err);
+    res.status(500).json({ error: 'Failed to fetch hosted sessions' });
+  }
+});
+
+// GET /sessions - list sessions (only fetch sessions not expired more than 2 hours)
 router.get('/', async (_req, res) => {
   try {
-    const sessions = await Session.find().sort({ date: 1, time: 1 });
+    const now = new Date();
+    const twoHoursAgo = new Date(now.getTime() - (2 * 60 * 60 * 1000)); // 2 hours ago
+
+    // Create a cutoff datetime string for comparison
+    const cutoffDate = twoHoursAgo.toISOString().split('T')[0]; // YYYY-MM-DD
+    const cutoffTime = twoHoursAgo.toTimeString().slice(0, 5); // HH:MM
+
+    // Query to fetch only relevant sessions:
+    // 1. Sessions in the future (startDate > today OR (startDate = today AND startTime > now))
+    // 2. Sessions that started within the last 2 hours
+    const sessions = await Session.find({
+      $or: [
+        // Future sessions (date is after today)
+        { startDate: { $gt: now.toISOString().split('T')[0] } },
+
+        // Sessions today that haven't started yet
+        {
+          startDate: now.toISOString().split('T')[0],
+          startTime: { $gt: now.toTimeString().slice(0, 5) }
+        },
+
+        // Sessions that started within the last 2 hours
+        {
+          $or: [
+            // Sessions on the cutoff date that started after the cutoff time
+            {
+              startDate: cutoffDate,
+              startTime: { $gte: cutoffTime }
+            },
+            // Sessions on dates after the cutoff date
+            {
+              startDate: { $gt: cutoffDate }
+            }
+          ]
+        },
+
+        // Include sessions without proper date/time (safety fallback)
+        { startDate: { $exists: false } },
+        { startTime: { $exists: false } }
+      ]
+    }).sort({
+      startDate: 1,
+      startTime: 1
+    });
+
     res.json(sessions);
   } catch (err) {
+    console.error('Error fetching sessions:', err);
     res.status(500).json({ error: 'Failed to fetch sessions' });
   }
 });
@@ -30,11 +135,11 @@ router.get('/:id', async (req, res) => {
 
 // POST /sessions - create a new session
 router.post('/', requireAuth, async (req: Request & { userId?: string }, res: Response) => {
-  console.log('Session creation attempt:', { 
-    sport: req.body.sport, 
-    venue: req.body.venue, 
-    date: req.body.date,
-    hostId: req.userId 
+  console.log('Session creation attempt:', {
+    sport: req.body.sport,
+    venue: req.body.venue,
+    startDate: req.body.startDate,
+    hostId: req.userId
   });
   
   try {

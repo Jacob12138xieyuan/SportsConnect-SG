@@ -124,6 +124,11 @@ export const sessionsAPI = {
     return response.data;
   },
 
+  getHostedSessions: async (): Promise<Session[]> => {
+    const response = await api.get('/sessions/hosted');
+    return response.data;
+  },
+
   getSession: async (id: string): Promise<Session> => {
     const response = await api.get(`/sessions/${id}`);
     return response.data;
