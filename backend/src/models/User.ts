@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   googleId: { type: String },
   avatar: { type: String }, // Optional avatar URL
+  profilePicture: { type: String }, // Optional profile picture URL
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema); 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,18 +6,64 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAuth } from '../contexts/AuthContext';
 import { sessionsAPI } from '../services/api';
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const queryClient = useQueryClient();
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const { data: sessions = [] } = useQuery({
     queryKey: ['sessions'],
     queryFn: sessionsAPI.getAllSessions,
+  });
+
+  // Profile picture upload mutation
+  const uploadProfilePictureMutation = useMutation({
+    mutationFn: async (imageUri: string) => {
+      const formData = new FormData();
+      formData.append('profilePicture', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'profile.jpg',
+      } as any);
+
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/users/profile-picture`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${await import('expo-secure-store').then(store => store.getItemAsync('token'))}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload profile picture');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Update user context with new profile picture URL
+      if (updateUser) {
+        updateUser({ ...user, profilePicture: data.profilePictureUrl });
+      }
+      Alert.alert('Success', 'Profile picture updated successfully!');
+    },
+    onError: (error) => {
+      console.error('Profile picture upload error:', error);
+      Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
+    },
+    onSettled: () => {
+      setIsUploadingImage(false);
+    },
   });
 
   // Calculate user statistics
@@ -44,6 +90,67 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     await logout(); // This clears user/token and triggers navigation to login via root navigator
+  };
+
+  const handleProfilePicturePress = () => {
+    Alert.alert(
+      'Update Profile Picture',
+      'Choose an option',
+      [
+        {
+          text: 'Camera',
+          onPress: () => pickImage('camera'),
+        },
+        {
+          text: 'Photo Library',
+          onPress: () => pickImage('library'),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
+  const pickImage = async (source: 'camera' | 'library') => {
+    try {
+      // Request permissions
+      const { status } = source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', `Please grant ${source} permission to update your profile picture.`);
+        return;
+      }
+
+      setIsUploadingImage(true);
+
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+          });
+
+      if (!result.canceled && result.assets[0]) {
+        uploadProfilePictureMutation.mutate(result.assets[0].uri);
+      } else {
+        setIsUploadingImage(false);
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      setIsUploadingImage(false);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
   };
 
   const StatCard = ({ icon, title, value, color = '#2563eb' }: {
@@ -78,11 +185,31 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container}>
       {/* Profile Header */}
       <View style={styles.header}>
-        <View style={styles.avatarContainer}>
-          <Icon name="person" size={48} color="#ffffff" />
-        </View>
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={handleProfilePicturePress}
+          disabled={isUploadingImage}
+        >
+          {isUploadingImage ? (
+            <ActivityIndicator size="large" color="#ffffff" />
+          ) : user?.profilePicture ? (
+            <Image source={{ uri: user.profilePicture }} style={styles.avatarImage} />
+          ) : (
+            <Icon name="person" size={48} color="#ffffff" />
+          )}
+          <View style={styles.cameraIconContainer}>
+            <Icon name="camera-alt" size={16} color="#ffffff" />
+          </View>
+        </TouchableOpacity>
         <Text style={styles.userName}>{user?.name}</Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
+        <TouchableOpacity
+          style={styles.editProfileButton}
+          onPress={() => Alert.alert('Coming Soon', 'Profile editing will be available soon!')}
+        >
+          <Icon name="edit" size={16} color="#ffffff" />
+          <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Statistics */}
@@ -174,13 +301,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    position: 'relative',
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  avatarImage: {
+    width: 94,
+    height: 94,
+    borderRadius: 47,
+  },
+  cameraIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#2563eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  editProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 12,
+  },
+  editProfileButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   userName: {
     fontSize: 24,

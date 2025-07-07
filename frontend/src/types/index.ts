@@ -6,6 +6,7 @@ export interface User {
   name: string;
   googleId?: string;
   avatar?: string;
+  profilePicture?: string;
 }
 
 export interface AuthResponse {
@@ -78,6 +79,7 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
+  updateUser?: (updatedUser: User) => void;
   isLoading: boolean;
 }
 
