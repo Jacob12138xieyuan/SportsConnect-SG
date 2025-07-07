@@ -92,4 +92,32 @@ router.get('/me', requireAuth, async (req: Request & { userId?: string }, res: R
   res.json({ id: user._id, email: user.email, name: user.name });
 });
 
-export default router; 
+// Update user profile endpoint
+router.put('/profile', requireAuth, async (req: any, res: Response) => {
+  try {
+    const userId = req.userId;
+    const { name, email } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update allowed fields
+    if (name) user.name = name;
+    if (email) user.email = email;
+
+    await user.save();
+
+    // Return updated user without password
+    const updatedUser = user.toObject();
+    delete updatedUser.passwordHash;
+
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+export default router;

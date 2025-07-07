@@ -53,25 +53,53 @@ export default function JoinedSessionsScreen({ navigation }: JoinedSessionsScree
     }
   };
 
-  // Filter sessions based on search query
+  const formatDateTime = (date: string, time: string): string => {
+    try {
+      const sessionDate = new Date(`${date}T${time}`);
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const isToday = sessionDate.toDateString() === today.toDateString();
+      const isTomorrow = sessionDate.toDateString() === tomorrow.toDateString();
+
+      let dateStr = '';
+      if (isToday) {
+        dateStr = 'Today';
+      } else if (isTomorrow) {
+        dateStr = 'Tomorrow';
+      } else {
+        dateStr = sessionDate.toLocaleDateString('en-SG', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric'
+        });
+      }
+
+      const timeStr = sessionDate.toLocaleTimeString('en-SG', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+
+      return `${dateStr} • ${timeStr}`;
+    } catch (error) {
+      return `${date} • ${time}`;
+    }
+  };
+
+  // Filter joined sessions based on search query
   const filteredSessions = joinedSessions.filter(session => {
     if (!searchQuery) return true;
-    
-    const query = searchQuery.toLowerCase();
-    return (
-      session.sport?.toLowerCase().includes(query) ||
-      session.venue?.toLowerCase().includes(query) ||
-      session.skillLevelStart?.toLowerCase().includes(query) ||
-      session.skillLevelEnd?.toLowerCase().includes(query)
-    );
+
+    // Apply search filter
+    const matchesSearch = session.sport.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         session.venue.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
   });
 
   const renderSessionItem = ({ item }: { item: Session }) => {
-    const participantCount = item.countHostIn 
-      ? (item.participants?.length || 0) + 1 
-      : (item.participants?.length || 0);
-    
-    const currentPlayers = Math.min(participantCount, item.maxPlayers);
+    const participantCount = item.participants ? item.participants.length : 0;
     const spotsLeft = item.maxPlayers - participantCount;
     const isFull = participantCount >= item.maxPlayers;
     const isAlmostFull = spotsLeft <= 2 && spotsLeft > 0;
@@ -82,118 +110,99 @@ export default function JoinedSessionsScreen({ navigation }: JoinedSessionsScree
         style={[styles.sessionCard, isExpired && styles.expiredSessionCard]}
         onPress={() => navigation.navigate('SessionDetail', { sessionId: item._id })}
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.sportAndSkill}>
-            <Text style={styles.sport}>{item.sport}</Text>
-            <View style={[styles.skillBadge, { backgroundColor: getSkillLevelColor(item.skillLevelStart, item.sport) }]}>
-              <Text style={styles.skillBadgeText}>{item.skillLevelStart} - {item.skillLevelEnd}</Text>
-            </View>
-          </View>
-          <View style={[
-            styles.statusBadge,
-            isExpired ? styles.expiredBadge : (isFull ? styles.fullBadge : styles.availableBadge)
-          ]}>
-            <Text style={[
-              styles.statusText,
-              isExpired ? styles.expiredText : (isFull ? styles.fullText : styles.availableText)
-            ]}>
-              {isExpired ? 'Expired' : 'Joined'}
-            </Text>
+        <View style={styles.sessionHeader}>
+          <Text style={[styles.sessionSport, isExpired && styles.expiredText]}>{item.sport}</Text>
+          <View style={[styles.skillBadge, { backgroundColor: getSkillLevelColor(item.skillLevelStart, item.sport) }]}>
+            <Text style={styles.skillBadgeText}>{item.skillLevelStart} - {item.skillLevelEnd}</Text>
           </View>
         </View>
 
-        <View style={styles.cardContent}>
-          <View style={styles.infoRow}>
-            <Icon name="location-on" size={16} color="#6b7280" />
-            <Text style={styles.venue}>{item.venue}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
+        <Text style={[styles.sessionVenue, isExpired && styles.expiredText]}>
+          {item.venue}
+          {item.courtNumber && ` • Court ${item.courtNumber}`}
+        </Text>
+
+        <View style={styles.sessionDetails}>
+          <View style={styles.detailItem}>
             <Icon name="schedule" size={16} color="#6b7280" />
-            <Text style={styles.dateTime}>
-              {item.startDate} at {item.startTime}
+            <Text style={styles.detailText}>
+              {formatDateTime(item.startDate || item.date || '', item.startTime || item.time || '')}
             </Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Icon name="person" size={16} color="#6b7280" />
-            <Text style={styles.hostInfo}>
-              Hosted by {typeof item.hostId === 'string' ? 'Host' : item.hostId?.name || 'Host'}
+          <View style={styles.detailItem}>
+            <Icon
+              name="group"
+              size={16}
+              color={isExpired ? "#9ca3af" : isFull ? "#ef4444" : isAlmostFull ? "#f59e0b" : "#10b981"}
+            />
+            <Text style={[
+              styles.detailText,
+              isExpired ? styles.expiredText : { color: isFull ? "#ef4444" : isAlmostFull ? "#f59e0b" : "#374151" }
+            ]}>
+              {participantCount}/{item.maxPlayers} players
             </Text>
-          </View>
-
-          {!isExpired && (
-            <View style={styles.infoRow}>
-              <Icon name="group" size={16} color="#6b7280" />
-              <Text style={[
-                styles.spotsInfo,
-                isFull ? styles.fullSpotsText : (isAlmostFull ? styles.almostFullSpotsText : styles.availableSpotsText)
-              ]}>
-                {currentPlayers}/{item.maxPlayers} players
-                {!isFull && ` • ${spotsLeft} spots left`}
+            {!isExpired && !isFull && (
+              <Text style={styles.spotsLeftText}>
+                • {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
               </Text>
-            </View>
-          )}
+            )}
+          </View>
+        </View>
+
+        <View style={styles.sessionFooter}>
+          <View style={styles.feeContainer}>
+            <Text style={[styles.sessionFee, isExpired && styles.expiredText]}>
+              {item.fee > 0 ? `S$${item.fee}` : 'Free'}
+            </Text>
+          </View>
+
+          <View style={[
+            styles.joinedBadge,
+            isExpired ? styles.expiredAvailabilityBadge : styles.joinedBadgeActive
+          ]}>
+            <Text style={[
+              styles.joinedBadgeText,
+              isExpired ? styles.expiredAvailabilityText : styles.joinedBadgeActiveText
+            ]}>
+              {isExpired ? 'Expired' : 'Upcoming'}
+            </Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
   };
 
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Icon name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Joined Sessions</Text>
-        </View>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </View>
-    );
-  }
-
   if (error) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Icon name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Joined Sessions</Text>
-        </View>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load joined sessions</Text>
-        </View>
+      <View style={styles.errorContainer}>
+        <Icon name="error-outline" size={48} color="#ef4444" />
+        <Text style={styles.errorText}>Failed to load sessions</Text>
+        <Text style={styles.errorSubtext}>Please try again later</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Icon name="arrow-back" size={24} color="#000" />
+          <Icon name="arrow-back" size={24} color="#374151" />
         </TouchableOpacity>
-        <Text style={styles.title}>Joined Sessions</Text>
+        <Text style={styles.headerTitle}>My Joined Sessions</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
+      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Icon name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search joined sessions..."
+          placeholder="Search by sport or venue..."
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholderTextColor="#9ca3af"
@@ -205,28 +214,29 @@ export default function JoinedSessionsScreen({ navigation }: JoinedSessionsScree
         )}
       </View>
 
+      {/* Sessions List */}
       <FlatList
         data={filteredSessions}
         renderItem={renderSessionItem}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        refreshing={isLoading}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: ['userSessionData', user?.id] })}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Icon name="event-busy" size={64} color="#d1d5db" />
-            <Text style={styles.emptyTitle}>
-              {searchQuery ? 'No matching sessions' : 'No joined sessions'}
+          <View style={styles.emptyState}>
+            <Icon name="event" size={64} color="#d1d5db" />
+            <Text style={styles.emptyStateText}>
+              {searchQuery ? 'No sessions found' : 'No joined sessions yet'}
             </Text>
-            <Text style={styles.emptySubtitle}>
-              {searchQuery 
-                ? 'Try adjusting your search terms' 
-                : 'Join some sessions to see them here'
+            <Text style={styles.emptyStateSubtext}>
+              {searchQuery
+                ? 'Try adjusting your search terms'
+                : 'Join some sessions to see them here!'
               }
             </Text>
           </View>
         }
-        refreshing={false}
-        onRefresh={() => queryClient.invalidateQueries({ queryKey: ['userSessionData', user?.id] })}
       />
     </View>
   );
@@ -245,16 +255,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
-    paddingTop: 50,
   },
   backButton: {
-    marginRight: 16,
-    padding: 4,
+    padding: 8,
+    marginRight: 8,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40, // Same width as back button to center title
   },
   searchContainer: {
     flexDirection: 'row',
@@ -262,20 +276,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     marginHorizontal: 16,
     marginVertical: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#111827',
-    paddingVertical: 4,
+    color: '#374151',
   },
   listContainer: {
     paddingHorizontal: 16,
@@ -293,124 +306,115 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   expiredSessionCard: {
-    opacity: 0.7,
+    opacity: 0.6,
     backgroundColor: '#f9fafb',
   },
-  cardHeader: {
+  sessionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  sportAndSkill: {
+  sessionSport: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
     flex: 1,
   },
-  sport: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
-  },
   skillBadge: {
-    alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 6,
   },
   skillBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#ffffff',
   },
-  statusBadge: {
+  sessionVenue: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
+  sessionDetails: {
+    marginBottom: 16,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#374151',
+    marginLeft: 8,
+  },
+  spotsLeftText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginLeft: 4,
+  },
+  sessionFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  feeContainer: {
+    flex: 1,
+  },
+  sessionFee: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  joinedBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 6,
   },
-  availableBadge: {
-    backgroundColor: '#dcfce7',
+  joinedBadgeActive: {
+    backgroundColor: '#10b981',
   },
-  fullBadge: {
-    backgroundColor: '#fee2e2',
-  },
-  expiredBadge: {
-    backgroundColor: '#f3f4f6',
-  },
-  statusText: {
+  joinedBadgeText: {
     fontSize: 12,
     fontWeight: '600',
   },
-  availableText: {
-    color: '#166534',
-  },
-  fullText: {
-    color: '#dc2626',
+  joinedBadgeActiveText: {
+    color: '#ffffff',
   },
   expiredText: {
-    color: '#6b7280',
+    color: '#9ca3af',
   },
-  cardContent: {
-    gap: 8,
+  expiredAvailabilityBadge: {
+    backgroundColor: '#6b7280',
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  venue: {
-    fontSize: 14,
-    color: '#6b7280',
-    flex: 1,
-  },
-  dateTime: {
-    fontSize: 14,
-    color: '#6b7280',
-    flex: 1,
-  },
-  hostInfo: {
-    fontSize: 14,
-    color: '#6b7280',
-    flex: 1,
-  },
-  spotsInfo: {
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
-  },
-  availableSpotsText: {
-    color: '#059669',
-  },
-  almostFullSpotsText: {
-    color: '#d97706',
-  },
-  fullSpotsText: {
-    color: '#dc2626',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#6b7280',
+  expiredAvailabilityText: {
+    color: '#ffffff',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
     color: '#ef4444',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
     textAlign: 'center',
   },
-  emptyContainer: {
+  emptyState: {
     alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
+    paddingVertical: 60,
+    paddingHorizontal: 20,
   },
-  emptyTitle: {
+  emptyStateText: {
     fontSize: 18,
     fontWeight: '600',
     color: '#374151',
@@ -418,10 +422,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
-  emptySubtitle: {
+  emptyStateSubtext: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#9ca3af',
     textAlign: 'center',
-    lineHeight: 20,
   },
 });

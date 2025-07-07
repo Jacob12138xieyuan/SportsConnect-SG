@@ -7,13 +7,14 @@ import {
   TouchableOpacity,
   Alert,
   Image,
-  ActivityIndicator,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as ImagePicker from 'expo-image-picker';
+
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAuth } from '../contexts/AuthContext';
-import { sessionsAPI } from '../services/api';
+import { sessionsAPI, usersAPI } from '../services/api';
 
 interface ProfileScreenProps {
   navigation: any;
@@ -22,7 +23,11 @@ interface ProfileScreenProps {
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user, logout, updateUser } = useAuth();
   const queryClient = useQueryClient();
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+  });
 
   // Fetch user's session data and statistics in one optimized call
   const { data: userSessionData = { hostedSessions: [], joinedSessions: [], stats: { hosted: 0, joined: 0, total: 0 } } } = useQuery({
@@ -45,113 +50,81 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     }
   }, [queryClient, user?.id]);
 
-  // Profile picture upload mutation
-  const uploadProfilePictureMutation = useMutation({
-    mutationFn: async (imageUri: string) => {
-      const formData = new FormData();
-      formData.append('profilePicture', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'profile.jpg',
-      } as any);
-
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/users/profile-picture`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${await import('expo-secure-store').then(store => store.getItemAsync('token'))}`,
-          'Content-Type': 'multipart/form-data',
-        },
-        body: formData,
+  // Update edit form when user changes
+  useEffect(() => {
+    if (user) {
+      setEditForm({
+        name: user.name || '',
+        email: user.email || '',
       });
+    }
+  }, [user]);
 
-      if (!response.ok) {
-        throw new Error('Failed to upload profile picture');
-      }
 
-      return response.json();
-    },
-    onSuccess: (data) => {
-      // Update user context with new profile picture URL
+
+  // Edit profile mutation
+  const editProfileMutation = useMutation({
+    mutationFn: (data: { name?: string; email?: string }) => usersAPI.updateProfile(data),
+    onSuccess: (updatedUser) => {
+      // Update user context with new profile data
       if (updateUser) {
-        updateUser({ ...user, profilePicture: data.profilePictureUrl });
+        updateUser(updatedUser);
       }
-      Alert.alert('Success', 'Profile picture updated successfully!');
+      setShowEditModal(false);
+      Alert.alert('Success', 'Profile updated successfully!');
     },
     onError: (error) => {
-      console.error('Profile picture upload error:', error);
-      Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
-    },
-    onSettled: () => {
-      setIsUploadingImage(false);
+      console.error('Profile update error:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
     },
   });
 
 
 
-  const handleLogout = async () => {
-    await logout(); // This clears user/token and triggers navigation to login via root navigator
+  const handleLogout = () => {
+    logout(); // This clears user/token and triggers navigation to login via root navigator
+  };
+
+  const handleEditProfile = () => {
+    setShowEditModal(true);
+  };
+
+  const handleSaveProfile = () => {
+    if (!editForm.name.trim()) {
+      Alert.alert('Error', 'Name is required');
+      return;
+    }
+    if (!editForm.email.trim()) {
+      Alert.alert('Error', 'Email is required');
+      return;
+    }
+
+    editProfileMutation.mutate({
+      name: editForm.name.trim(),
+      email: editForm.email.trim(),
+    });
+  };
+
+  const handleCancelEdit = () => {
+    // Reset form to current user data
+    if (user) {
+      setEditForm({
+        name: user.name || '',
+        email: user.email || '',
+      });
+    }
+    setShowEditModal(false);
   };
 
   const handleProfilePicturePress = () => {
     Alert.alert(
-      'Update Profile Picture',
-      'Choose an option',
-      [
-        {
-          text: 'Camera',
-          onPress: () => pickImage('camera'),
-        },
-        {
-          text: 'Photo Library',
-          onPress: () => pickImage('library'),
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
+      'Profile Picture',
+      'Profile picture upload will be available in a future update!',
+      [{ text: 'OK', style: 'default' }]
     );
   };
 
-  const pickImage = async (source: 'camera' | 'library') => {
-    try {
-      // Request permissions
-      const { status } = source === 'camera'
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', `Please grant ${source} permission to update your profile picture.`);
-        return;
-      }
-
-      setIsUploadingImage(true);
-
-      const result = source === 'camera'
-        ? await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-          })
-        : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-          });
-
-      if (!result.canceled && result.assets[0]) {
-        uploadProfilePictureMutation.mutate(result.assets[0].uri);
-      } else {
-        setIsUploadingImage(false);
-      }
-    } catch (error) {
-      console.error('Image picker error:', error);
-      setIsUploadingImage(false);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
-    }
-  };
 
   const StatCard = ({ icon, title, value, color = '#2563eb', onPress }: {
     icon: string;
@@ -196,11 +169,8 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         <TouchableOpacity
           style={styles.avatarContainer}
           onPress={handleProfilePicturePress}
-          disabled={isUploadingImage}
         >
-          {isUploadingImage ? (
-            <ActivityIndicator size="large" color="#ffffff" />
-          ) : user?.profilePicture ? (
+          {user?.profilePicture ? (
             <Image source={{ uri: user.profilePicture }} style={styles.avatarImage} />
           ) : (
             <Icon name="person" size={48} color="#ffffff" />
@@ -213,7 +183,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         <Text style={styles.userEmail}>{user?.email}</Text>
         <TouchableOpacity
           style={styles.editProfileButton}
-          onPress={() => Alert.alert('Coming Soon', 'Profile editing will be available soon!')}
+          onPress={handleEditProfile}
         >
           <Icon name="edit" size={16} color="#ffffff" />
           <Text style={styles.editProfileButtonText}>Edit Profile</Text>
@@ -254,7 +224,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         <MenuButton
           icon="edit"
           title="Edit Profile"
-          onPress={() => Alert.alert('Coming Soon', 'Profile editing will be available soon!')}
+          onPress={handleEditProfile}
         />
         
         <MenuButton
@@ -294,6 +264,59 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         <Text style={styles.footerText}>SportConnect SG v1.0.0</Text>
         <Text style={styles.footerText}>Made with ❤️ in Singapore</Text>
       </View>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleCancelEdit}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={handleCancelEdit}>
+              <Text style={styles.modalCancelButton}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Edit Profile</Text>
+            <TouchableOpacity
+              onPress={handleSaveProfile}
+              disabled={editProfileMutation.isPending}
+            >
+              <Text style={[
+                styles.modalSaveButton,
+                editProfileMutation.isPending && styles.modalSaveButtonDisabled
+              ]}>
+                {editProfileMutation.isPending ? 'Saving...' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modalContent}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={editForm.name}
+                onChangeText={(text) => setEditForm(prev => ({ ...prev, name: text }))}
+                placeholder="Enter your name"
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={styles.textInput}
+                value={editForm.email}
+                onChangeText={(text) => setEditForm(prev => ({ ...prev, email: text }))}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -449,5 +472,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     marginBottom: 4,
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    paddingTop: 60, // Account for status bar
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  modalCancelButton: {
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  modalSaveButton: {
+    fontSize: 16,
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  modalSaveButtonDisabled: {
+    color: '#9ca3af',
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    backgroundColor: '#ffffff',
   },
 });

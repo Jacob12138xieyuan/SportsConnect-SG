@@ -117,6 +117,25 @@ export const authAPI = {
   },
 };
 
+// Users API
+export const usersAPI = {
+  updateProfile: async (data: { name?: string; email?: string }): Promise<User> => {
+    const response = await api.put('/auth/profile', data);
+    return response.data;
+  },
+
+  uploadProfilePicture: async (_imageUri: string): Promise<{ profilePictureUrl: string }> => {
+    // For now, return a mock response since file upload is complex
+    // TODO: Implement proper file upload later
+    return Promise.reject(new Error('Profile picture upload not yet implemented'));
+  },
+
+  getProfile: async (): Promise<User> => {
+    const response = await api.get('/auth/me');
+    return response.data;
+  },
+};
+
 // Sessions API
 export const sessionsAPI = {
   getAllSessions: async (): Promise<Session[]> => {

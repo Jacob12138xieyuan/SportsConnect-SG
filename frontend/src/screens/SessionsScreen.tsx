@@ -133,6 +133,15 @@ export default function SessionsScreen() {
     const isAlmostFull = spotsLeft <= 2 && spotsLeft > 0;
     const isExpired = isSessionExpired(item);
 
+    // Check if current user is the host of this session
+    const isUserHost = user && (
+      (typeof item.hostId === 'string' && (item.hostId === user._id || item.hostId === user.id)) ||
+      (typeof item.hostId === 'object' && item.hostId && (
+        item.hostId._id === user._id || item.hostId._id === user.id ||
+        item.hostId.id === user._id || item.hostId.id === user.id
+      ))
+    );
+
     // Check if current user has joined this session
     const hasUserJoined = user && item.participants &&
                          item.participants.some(participant => {
@@ -205,6 +214,7 @@ export default function SessionsScreen() {
           <View style={[
             styles.availabilityBadge,
             isExpired ? styles.expiredAvailabilityBadge :
+            isUserHost ? styles.hostBadge :
             hasUserJoined ? styles.joinedBadge :
             isFull ? styles.fullBadge :
             isAlmostFull ? styles.almostFullBadge :
@@ -213,12 +223,14 @@ export default function SessionsScreen() {
             <Text style={[
               styles.availabilityText,
               isExpired ? styles.expiredAvailabilityText :
+              isUserHost ? styles.hostText :
               hasUserJoined ? styles.joinedText :
               isFull ? styles.fullText :
               isAlmostFull ? styles.almostFullText :
               styles.availableText
             ]}>
               {isExpired ? 'Recently Expired' :
+               isUserHost ? 'Host' :
                hasUserJoined ? 'Joined' :
                isFull ? 'Full' :
                isAlmostFull ? 'Almost Full' :
@@ -452,6 +464,9 @@ const styles = StyleSheet.create({
   joinedBadge: {
     backgroundColor: '#dbeafe',
   },
+  hostBadge: {
+    backgroundColor: '#f3e8ff',
+  },
   almostFullBadge: {
     backgroundColor: '#fef3c7',
   },
@@ -477,6 +492,9 @@ const styles = StyleSheet.create({
   },
   joinedText: {
     color: '#1d4ed8',
+  },
+  hostText: {
+    color: '#7c3aed',
   },
   almostFullText: {
     color: '#d97706',
