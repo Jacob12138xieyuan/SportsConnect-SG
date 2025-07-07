@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { sessionsAPI } from '../services/api';
 import { Session } from '../types';
 import { getSkillLevelColor } from '../constants/skillLevels';
+import { useAuth } from '../contexts/AuthContext';
 
 interface HostedSessionsScreenProps {
   navigation: any;
@@ -19,15 +19,19 @@ interface HostedSessionsScreenProps {
 
 export default function HostedSessionsScreen({ navigation }: HostedSessionsScreenProps) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
 
   // Get hosted sessions from cached user session data (already fetched in ProfileScreen)
-  const { data: userSessionData, isLoading, error } = useQuery({
-    queryKey: ['userSessionData'],
-    queryFn: sessionsAPI.getUserSessionData,
-  });
+  const userSessionData = queryClient.getQueryData(['userSessionData', user?.id]) as {
+    hostedSessions: Session[];
+    joinedSessions: Session[];
+    stats: { hosted: number; joined: number; total: number };
+  } | undefined;
 
   const hostedSessions = userSessionData?.hostedSessions || [];
+  const isLoading = !userSessionData;
+  const error = null;
 
   // Filter hosted sessions based on search query
   const filteredSessions = hostedSessions.filter(session => {
@@ -220,7 +224,7 @@ export default function HostedSessionsScreen({ navigation }: HostedSessionsScree
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshing={isLoading}
-        onRefresh={() => queryClient.invalidateQueries({ queryKey: ['userSessionData'] })}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: ['userSessionData', user?.id] })}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Icon name="event" size={64} color="#d1d5db" />

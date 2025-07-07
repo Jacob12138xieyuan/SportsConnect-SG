@@ -13,6 +13,7 @@ import MessagesScreen from '../screens/MessagesScreen';
 import CreateSessionScreen from '../screens/CreateSessionScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import HostedSessionsScreen from '../screens/HostedSessionsScreen';
+import JoinedSessionsScreen from '../screens/JoinedSessionsScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const SessionStack = createStackNavigator<SessionStackParamList>();
@@ -57,6 +58,13 @@ function ProfileStackNavigator() {
         component={HostedSessionsScreen}
         options={{
           headerShown: false, // HostedSessionsScreen has its own header
+        }}
+      />
+      <ProfileStack.Screen
+        name="JoinedSessions"
+        component={JoinedSessionsScreen}
+        options={{
+          headerShown: false, // JoinedSessionsScreen has its own header
         }}
       />
       <ProfileStack.Screen

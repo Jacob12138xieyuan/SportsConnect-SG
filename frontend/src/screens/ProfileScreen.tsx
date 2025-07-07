@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,15 +21,29 @@ interface ProfileScreenProps {
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user, logout, updateUser } = useAuth();
+  const queryClient = useQueryClient();
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Fetch user's session data and statistics in one optimized call
-  const { data: userSessionData = { hostedSessions: [], stats: { hosted: 0, joined: 0, total: 0 } } } = useQuery({
-    queryKey: ['userSessionData'],
+  const { data: userSessionData = { hostedSessions: [], joinedSessions: [], stats: { hosted: 0, joined: 0, total: 0 } } } = useQuery({
+    queryKey: ['userSessionData', user?.id],
     queryFn: sessionsAPI.getUserSessionData,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    enabled: !!user?.id, // Only run query when user is available
   });
 
   const { stats: userStats } = userSessionData;
+
+  // Prefetch data when component mounts to ensure it's available for navigation
+  useEffect(() => {
+    if (user?.id) {
+      queryClient.prefetchQuery({
+        queryKey: ['userSessionData', user.id],
+        queryFn: sessionsAPI.getUserSessionData,
+        staleTime: 5 * 60 * 1000,
+      });
+    }
+  }, [queryClient, user?.id]);
 
   // Profile picture upload mutation
   const uploadProfilePictureMutation = useMutation({
@@ -228,6 +242,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             title="Joined"
             value={userStats.joined}
             color="#10b981"
+            onPress={() => navigation.navigate('JoinedSessions')}
           />
         </View>
       </View>

@@ -121,5 +121,6 @@ export type SessionStackParamList = {
 export type ProfileStackParamList = {
   ProfileMain: undefined;
   HostedSessions: undefined;
+  JoinedSessions: undefined;
   SessionDetail: { sessionId: string };
 };

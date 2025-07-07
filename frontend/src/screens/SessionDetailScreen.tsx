@@ -46,6 +46,7 @@ export default function SessionDetailScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['userSessionData', user?.id] });
     },
     onError: (error: any) => {
       console.error('Failed to join session:', error.response?.data?.error || error.message);
@@ -57,6 +58,7 @@ export default function SessionDetailScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['userSessionData', user?.id] });
     },
     onError: (error: any) => {
       console.error('Failed to leave session:', error.response?.data?.error || error.message);
@@ -67,7 +69,7 @@ export default function SessionDetailScreen() {
     mutationFn: () => sessionsAPI.deleteSession(sessionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['userSessionData'] });
+      queryClient.invalidateQueries({ queryKey: ['userSessionData', user?.id] });
       // Navigate back to previous screen after successful cancellation
       navigation.goBack();
     },

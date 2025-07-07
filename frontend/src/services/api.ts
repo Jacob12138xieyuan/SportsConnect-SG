@@ -131,6 +131,7 @@ export const sessionsAPI = {
 
   getUserSessionData: async (): Promise<{
     hostedSessions: Session[];
+    joinedSessions: Session[];
     stats: { hosted: number; joined: number; total: number };
   }> => {
     const response = await api.get('/sessions/user-data');

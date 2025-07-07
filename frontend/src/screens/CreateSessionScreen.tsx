@@ -403,6 +403,7 @@ export default function CreateSessionScreen() {
     onSuccess: (newSession) => {
       console.log('Session created successfully:', newSession);
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['userSessionData', user?.id] });
       // Navigate directly to the session detail page
       navigation.navigate('Sessions', {
         screen: 'SessionDetail',

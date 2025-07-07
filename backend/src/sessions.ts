@@ -50,6 +50,17 @@ router.get('/user-data', requireAuth, async (req: Request & { userId?: string },
       startTime: -1   // Descending order (latest time first)
     });
 
+    // Fetch joined sessions (sessions where user is in participants array)
+    const joinedSessions = await Session.find({
+      participants: userId
+    })
+    .populate({ path: 'participants', select: 'name avatar email' })
+    .populate({ path: 'hostId', select: 'name avatar email' })
+    .sort({
+      startDate: -1,  // Descending order (newest first)
+      startTime: -1   // Descending order (latest time first)
+    });
+
     // Calculate statistics efficiently using aggregation
     const stats = await Session.aggregate([
       {
@@ -59,21 +70,14 @@ router.get('/user-data', requireAuth, async (req: Request & { userId?: string },
             { $match: { hostId: new mongoose.Types.ObjectId(userId) } },
             { $count: "count" }
           ],
-          // Count total sessions where user is participant (including as host)
+          // Count total sessions where user is in participants array
           joinedCount: [
             { $match: { participants: new mongoose.Types.ObjectId(userId) } },
             { $count: "count" }
           ],
-          // Count total unique sessions (hosted or joined)
+          // Count total unique sessions (hosted or joined) - same as joined since participants includes host
           totalCount: [
-            {
-              $match: {
-                $or: [
-                  { hostId: new mongoose.Types.ObjectId(userId) },
-                  { participants: new mongoose.Types.ObjectId(userId) }
-                ]
-              }
-            },
+            { $match: { participants: new mongoose.Types.ObjectId(userId) } },
             { $count: "count" }
           ]
         }
@@ -87,6 +91,7 @@ router.get('/user-data', requireAuth, async (req: Request & { userId?: string },
 
     res.json({
       hostedSessions,
+      joinedSessions,
       stats: {
         hosted: hostedCount,
         joined: joinedCount,
