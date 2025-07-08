@@ -30,12 +30,43 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   });
 
   // Fetch user's session data and statistics in one optimized call
-  const { data: userSessionData = { hostedSessions: [], joinedSessions: [], stats: { hosted: 0, joined: 0, total: 0 } } } = useQuery({
+  const { data: userSessionData = { hostedSessions: [], joinedSessions: [], stats: { hosted: 0, joined: 0, total: 0 } }, isLoading: isLoadingSessionData, error: sessionDataError, isFetching } = useQuery({
     queryKey: ['userSessionData', user?.id],
-    queryFn: sessionsAPI.getUserSessionData,
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    queryFn: () => {
+      console.log('Executing getUserSessionData query for user:', user?.id);
+      return sessionsAPI.getUserSessionData();
+    },
+    staleTime: 1 * 60 * 1000, // Reduced to 1 minute for testing
     enabled: !!user?.id, // Only run query when user is available
+    retry: 3,
+    retryDelay: 1000,
   });
+
+  // Debug logging
+  useEffect(() => {
+    console.log('ProfileScreen: User session data state:', {
+      isLoading: isLoadingSessionData,
+      isFetching,
+      error: sessionDataError,
+      dataLength: {
+        hosted: userSessionData.hostedSessions.length,
+        joined: userSessionData.joinedSessions.length
+      },
+      userId: user?.id,
+      userObject: user,
+      rawData: userSessionData
+    });
+  }, [isLoadingSessionData, isFetching, sessionDataError, userSessionData, user]);
+
+  // Additional debug for profile updates
+  useEffect(() => {
+    console.log('ProfileScreen: User object changed:', {
+      userId: user?.id,
+      userName: user?.name,
+      userEmail: user?.email,
+      timestamp: new Date().toISOString()
+    });
+  }, [user]);
 
   const { stats: userStats } = userSessionData;
 
@@ -65,13 +96,57 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   // Edit profile mutation
   const editProfileMutation = useMutation({
     mutationFn: (data: { name?: string; email?: string }) => usersAPI.updateProfile(data),
-    onSuccess: (updatedUser) => {
-      // Update user context with new profile data
-      if (updateUser) {
-        updateUser(updatedUser);
+    onSuccess: async (updatedUser) => {
+      try {
+        console.log('Profile update success - Before user context update:', {
+          oldUser: user,
+          updatedUser,
+          currentSessionData: userSessionData
+        });
+
+        // Normalize the user object to ensure it has the correct ID field
+        const normalizedUser = {
+          ...updatedUser,
+          id: updatedUser.id || updatedUser._id || ''
+        };
+
+        // Update user context with new profile data
+        if (updateUser) {
+          updateUser(normalizedUser);
+          console.log('User context updated with:', normalizedUser);
+        }
+
+        // Wait a moment for React to process the state update
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        console.log('About to invalidate queries for user:', normalizedUser.id);
+
+        // Invalidate all user-related queries to ensure fresh data
+        const invalidationResults = await Promise.allSettled([
+          // Invalidate user session data for both old and new user ID (in case ID changed)
+          queryClient.invalidateQueries({
+            queryKey: ['userSessionData']
+          }),
+          // Invalidate general sessions query in case user name changed
+          queryClient.invalidateQueries({
+            queryKey: ['sessions']
+          }),
+          // Refetch user session data immediately
+          queryClient.refetchQueries({
+            queryKey: ['userSessionData', normalizedUser.id]
+          })
+        ]);
+
+        console.log('Query invalidation results:', invalidationResults);
+        console.log('Profile updated and queries refreshed for user:', normalizedUser.id);
+
+        setShowEditModal(false);
+        Alert.alert('Success', 'Profile updated successfully!');
+      } catch (error) {
+        console.error('Error refreshing data after profile update:', error);
+        setShowEditModal(false);
+        Alert.alert('Success', 'Profile updated successfully!');
       }
-      setShowEditModal(false);
-      Alert.alert('Success', 'Profile updated successfully!');
     },
     onError: (error) => {
       console.error('Profile update error:', error);
